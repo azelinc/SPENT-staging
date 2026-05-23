@@ -227,6 +227,7 @@ function refreshDash(){
 
   loadSettings(uid).then(settings=>{
     const ownerUid = settings.ownerUid || null;
+    const partnerFilter = settings.partnerFilter || 'both';
 
     // Load own expenses
     loadExpenses(uid).then(own=>{
@@ -242,24 +243,35 @@ function refreshDash(){
           const fetches = approved.map(([puid])=> loadExpenses(puid).then(list=> list.filter(e=>e.status!=='rejected').map(e=>({...e,_user:links[puid].name,_uid:puid}))) );
           Promise.all(fetches).then(partnerLists=>{
             partnerLists.forEach(pl=> combined = combined.concat(pl));
-            renderDash(combined, today, monthPrefix);
+            renderDash(combined, today, monthPrefix, partnerFilter, approved);
           });
         }else{
           // Solo or partner-only: show own data only
-          renderDash(combined, today, monthPrefix);
+          renderDash(combined, today, monthPrefix, partnerFilter, approved);
         }
       });
     });
   });
 }
 
-function renderDash(combined, today, monthPrefix){
-  const todaySum = combined.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
-  const monthSum = combined.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
+function renderDash(combined, today, monthPrefix, partnerFilter, approvedPartners){
+  // Filter for hero totals based on partnerFilter setting
+  let heroData = combined;
+  const hasPartners = approvedPartners && approvedPartners.length > 0;
+  if(hasPartners && partnerFilter !== 'both'){
+    heroData = combined.filter(e => {
+      if(partnerFilter === 'me') return e._uid === currentUser.uid;
+      if(partnerFilter === 'ibu') return e._uid !== currentUser.uid;
+      return true;
+    });
+  }
+  
+  const todaySum = heroData.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
+  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
 
-  // Quick tiles
+  // Quick tiles (all data)
   const tiles = $('quick-tiles');
   tiles.innerHTML = '';
   const freq = {};
@@ -274,7 +286,7 @@ function renderDash(combined, today, monthPrefix){
     tiles.appendChild(el);
   });
 
-  // Recent list
+  // Recent list (all data)
   const recent = $('recent-list');
   recent.innerHTML = '';
   const recentList = combined.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,20);
@@ -497,6 +509,9 @@ function renderSettings(){
     $('set-owner-uid').value = ownerUid;
     if(ownerUid){ $('btn-clear-owner').classList.remove('hidden'); }
     else { $('btn-clear-owner').classList.add('hidden'); }
+    
+    // Load saved filter, default 'both'
+    $('set-filter').value = settings.partnerFilter || 'both';
   });
 
   // Owner panels
@@ -580,6 +595,14 @@ $('btn-clear-owner').addEventListener('click',()=>{
       renderSettings();
       refreshDash();
     });
+  });
+});
+
+// Summary filter change
+$('set-filter').addEventListener('change',()=>{
+  const val = $('set-filter').value;
+  saveSettings(currentUser.uid, { partnerFilter: val }).then(()=>{
+    refreshDash();
   });
 });
 

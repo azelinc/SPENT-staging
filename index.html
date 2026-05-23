@@ -31,7 +31,6 @@
     <header class="dash-header">
       <div class="user-info">
         <span id="dash-greeting">Hello</span>
-        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch</button>
       </div>
       <div class="header-actions">
         <button id="btn-review" class="btn-ghost btn-sm hidden">Review <span id="pending-badge" class="badge hidden">0</span></button>
@@ -145,6 +144,16 @@
         </div>
       </div>
 
+      <div class="field">
+        <label>Summary Filter</label>
+        <p class="field-hint">Show totals for Today / Month.</p>
+        <select id="set-filter">
+          <option value="both">Both (Me + Ibu)</option>
+          <option value="me">Just Me</option>
+          <option value="ibu">Just Ibu</option>
+        </select>
+      </div>
+
       <div class="field hidden" id="owner-panel">
         <label>Pending Link Requests</label>
         <div id="pending-links"></div>
@@ -162,6 +171,9 @@
 
       <div class="field danger-zone">
         <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
+      </div>
+      <div class="field">
+        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch Account</button>
       </div>
       <div class="field version-field">
         <span id="app-version">—</span>

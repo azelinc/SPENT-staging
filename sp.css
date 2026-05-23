@@ -254,6 +254,18 @@ html, body {
   outline: none;
 }
 .field input:focus { border-color: var(--accent); }
+.field select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  outline: none;
+  cursor: pointer;
+}
+.field select:focus { border-color: var(--accent); }
 
 /* AMOUNT */
 .amount-display {
