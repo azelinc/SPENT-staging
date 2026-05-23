@@ -32,7 +32,10 @@
         <span id="dash-greeting">Hello</span>
         <button id="btn-switch-user" class="btn-ghost btn-sm">Switch</button>
       </div>
-      <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+      <div class="header-actions">
+        <button id="btn-review" class="btn-ghost btn-sm hidden">Review <span id="pending-badge" class="badge hidden">0</span></button>
+        <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+      </div>
     </header>
 
     <div class="hero">
@@ -105,6 +108,18 @@
     </div>
   </section>
 
+  <!-- REVIEW -->
+  <section id="review-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-review-back" class="btn-ghost">Back</button>
+      <span class="add-title">Review Partner Expenses</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="review-body">
+      <div id="review-list" class="list"></div>
+    </div>
+  </section>
+
   <!-- SETTINGS -->
   <section id="settings-screen" class="screen">
     <header class="add-header">
@@ -114,24 +129,42 @@
     </header>
     <div class="settings-body">
       <div class="field">
-        <label>Partner Link</label>
-        <p class="field-hint">Combine another user's expenses into this dashboard</p>
-        <div id="partner-current" class="partner-status">No partner linked</div>
-        <select id="partner-select" class="hidden"></select>
-        <button id="btn-link-partner" class="btn-primary btn-sm">Link Partner</button>
-        <button id="btn-unlink-partner" class="btn-danger btn-sm hidden">Unlink</button>
+        <label>My Account ID</label>
+        <div class="uid-box" id="set-my-uid">—</div>
+        <p class="field-hint">Share this ID with your partner so they can link to you.</p>
       </div>
+
+      <div class="field" id="owner-link-field">
+        <label>Link to Owner</label>
+        <p class="field-hint">Enter your partner's Account ID to send them your expenses for review.</p>
+        <input type="text" id="set-owner-uid" placeholder="Partner Account ID">
+        <div class="btn-row">
+          <button id="btn-save-owner" class="btn-primary btn-sm">Link</button>
+          <button id="btn-clear-owner" class="btn-danger btn-sm hidden">Unlink</button>
+        </div>
+      </div>
+
+      <div class="field hidden" id="owner-panel">
+        <label>Pending Link Requests</label>
+        <div id="pending-links"></div>
+      </div>
+
+      <div class="field hidden" id="approved-panel">
+        <label>Approved Partners</label>
+        <div id="approved-links"></div>
+      </div>
+
       <div class="field">
         <label>Change PIN</label>
         <input type="password" id="set-pin" placeholder="New 4-digit PIN" maxlength="4" inputmode="numeric">
         <button id="btn-save-pin" class="btn-primary btn-sm">Save PIN</button>
       </div>
+
       <div class="field">
         <label>Data</label>
         <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
-        <button id="btn-import" class="btn-ghost btn-sm">Import JSON</button>
-        <input type="file" id="import-file" accept=".json" class="hidden">
       </div>
+
       <div class="field danger-zone">
         <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
       </div>
@@ -139,6 +172,11 @@
   </section>
 
 </div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
 <script src="spent.js"></script>
 </body>

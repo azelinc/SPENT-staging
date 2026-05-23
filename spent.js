@@ -1,8 +1,22 @@
 (function(){
 'use strict';
 
-/* ─── CONFIG ─── */
-const STORAGE_VER = 'spent_v1';
+/* ─── FIREBASE CONFIG ─── */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC2fezwrXSOeDCytG84RES-dJ04teLvmuo",
+  authDomain: "ainvested-703ec.firebaseapp.com",
+  databaseURL: "https://ainvested-703ec-default-rtdb.firebaseio.com",
+  projectId: "ainvested-703ec",
+  storageBucket: "ainvested-703ec.firebasestorage.app",
+  messagingSenderId: "453797298902",
+  appId: "1:453797298902:web:ea0018b9a52dd73eaaff77"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.database();
+
+/* ─── CONSTANTS ─── */
 const CATEGORIES = [
   'Food & Dining','Groceries','Transport','Shopping',
   'Utilities','Entertainment','Health & Wellness','Home','Others'
@@ -17,7 +31,6 @@ const CAT_MAP = {
   'health & wellness': ['pharmacy','clinic','hospital','dental','physio','gym','fitness','yoga','pilates','saloon','barber','spa','massage','supplement','vitamin','medical','doktor','ubat'],
   'home': ['mortgage','rent','renovation','furniture','cleaning','laundry','repair','plumber','electrician','contractor','security','alarm','cctv','garden','taman','rumah']
 };
-
 const QUICK_TILES = [
   { merchant: 'Grab', category: 'Transport' },
   { merchant: 'Shell', category: 'Transport' },
@@ -34,25 +47,18 @@ const QUICK_TILES = [
 ];
 
 /* ─── STATE ─── */
-let currentUser = null;
+let currentUser = null;   // { uid, name, pin }
 let amountStr = '';
+let pendingCount = 0;
+let authReady = false;
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
-function hash(s){ let h=0; for(let i=0;i<s.length;i++) h=((h<<5)-h)+s.charCodeAt(i)|0; return Math.abs(h).toString(36); }
-function lsKey(user){ return `${STORAGE_VER}_${hash(user.name.toLowerCase())}`; }
 function now(){ return new Date(); }
 function fmtDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fmtMoney(n){ return 'RM '+n.toFixed(2); }
 function parseMoney(s){ const v=parseFloat(s); return isNaN(v)?0:v; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-
-function getData(user){
-  const raw=localStorage.getItem(lsKey(user));
-  return raw?JSON.parse(raw):{pin:user.pin, expenses:[], settings:{}};
-}
-function setData(user,data){ localStorage.setItem(lsKey(user),JSON.stringify(data)); }
-
 function detectCategory(merchant){
   const m=merchant.toLowerCase();
   for(const[cat,keywords] of Object.entries(CAT_MAP)){
@@ -61,60 +67,71 @@ function detectCategory(merchant){
   return 'Others';
 }
 
-/* ─── USERS ─── */
-function getAllUsers(){
-  const users=[];
-  for(let i=0;i<localStorage.length;i++){
-    const key=localStorage.key(i);
-    if(key&&key.startsWith(STORAGE_VER+'_')){
-      try{
-        const d=JSON.parse(localStorage.getItem(key));
-        // recover name from key hash? no — we don't have reverse hash.
-        // instead scan keys for name in settings.name if stored, else skip
-      }catch(e){}
-    }
-  }
-  // better: keep a registry key
-  const reg=JSON.parse(localStorage.getItem(STORAGE_VER+'_users')||'[]');
-  return reg;
-}
-function addUserToRegistry(name){
-  const reg=JSON.parse(localStorage.getItem(STORAGE_VER+'_users')||'[]');
-  const n=name.toLowerCase();
-  if(!reg.includes(n)) reg.push(n);
-  localStorage.setItem(STORAGE_VER+'_users',JSON.stringify(reg));
-}
-function getPartner(){
-  const data=getData(currentUser);
-  return data.settings.partner||null;
-}
-function setPartner(name){
-  const data=getData(currentUser);
-  data.settings.partner=name?name.toLowerCase():null;
-  setData(currentUser,data);
-}
-function getPartnerData(){
-  const p=getPartner();
-  if(!p) return null;
-  const key=`${STORAGE_VER}_${hash(p)}`;
-  const raw=localStorage.getItem(key);
-  return raw?JSON.parse(raw):null;
-}
-
-function getCombinedExpenses(){
-  const data=getData(currentUser);
-  let list=data.expenses.map(e=>({...e,_user:currentUser.name}));
-  const partner=getPartnerData();
-  if(partner&&partner.expenses){
-    list=list.concat(partner.expenses.map(e=>({...e,_user:getPartner()})));
-  }
-  return list;
-}
-
 /* ─── NAV ─── */
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $(id).classList.add('active');
+}
+
+/* ─── AUTH ─── */
+auth.onAuthStateChanged(user=>{
+  authReady = true;
+  if(!user){
+    auth.signInAnonymously().catch(console.error);
+    return;
+  }
+  // anonymous user now has stable uid
+  if(currentUser){
+    refreshDash();
+    refreshReviewBadge();
+  }
+});
+
+/* ─── USER PROFILE ─── */
+function userRef(uid){ return db.ref('users/'+uid); }
+function expRef(uid){ return db.ref('users/'+uid+'/expenses'); }
+function settingsRef(uid){ return db.ref('users/'+uid+'/settings'); }
+function ownerLinksRef(ownerUid){ return db.ref('owners/'+ownerUid+'/links'); }
+
+function loadUserProfile(uid){
+  return userRef(uid).once('value').then(s=>s.val()||null);
+}
+function saveUserProfile(uid, name, pin){
+  return userRef(uid).update({ name, pin, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function saveExpense(uid, expense){
+  const key = expRef(uid).push().key;
+  return expRef(uid).child(key).set(expense).then(()=>key);
+}
+function updateExpenseStatus(uid, expId, status){
+  return expRef(uid).child(expId).update({ status });
+}
+function loadExpenses(uid){
+  return expRef(uid).once('value').then(s=>{
+    const v=s.val()||{};
+    return Object.entries(v).map(([id,o])=>({id,...o}));
+  });
+}
+function loadSettings(uid){
+  return settingsRef(uid).once('value').then(s=>s.val()||{});
+}
+function saveSettings(uid, settings){
+  return settingsRef(uid).set(settings);
+}
+function requestLink(partnerUid, ownerUid, partnerName){
+  return ownerLinksRef(ownerUid).child(partnerUid).set({ status:'pending', name: partnerName, requestedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function approveLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).update({ status:'approved', approvedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function rejectLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).update({ status:'rejected', rejectedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+function removeLink(ownerUid, partnerUid){
+  return ownerLinksRef(ownerUid).child(partnerUid).remove();
+}
+function loadOwnerLinks(ownerUid){
+  return ownerLinksRef(ownerUid).once('value').then(s=>s.val()||{});
 }
 
 /* ─── LOGIN ─── */
@@ -125,19 +142,24 @@ function doLogin(){
   const name=$('login-name').value.trim();
   const pin=$('login-pin').value.trim();
   if(!name||pin.length!==4||!/\d{4}/.test(pin)){ alert('Enter name and 4-digit PIN'); return; }
-  const key=lsKey({name:name.toLowerCase()});
-  const raw=localStorage.getItem(key);
-  if(raw){
-    const data=JSON.parse(raw);
-    if(data.pin!==pin){ alert('Wrong PIN'); return; }
-  }else{
-    setData({name:name.toLowerCase(),pin},{pin,expenses:[],settings:{}});
-  }
-  addUserToRegistry(name.toLowerCase());
-  currentUser={name,pin};
-  $('dash-greeting').textContent='Hello, '+name;
-  showScreen('dash-screen');
-  refreshDash();
+  if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
+
+  const uid = auth.currentUser ? auth.currentUser.uid : null;
+  if(!uid){ alert('Auth not ready'); return; }
+
+  loadUserProfile(uid).then(profile=>{
+    if(profile){
+      if(profile.pin!==pin){ alert('Wrong PIN'); return; }
+      currentUser = { uid, name: profile.name || name, pin };
+    }else{
+      currentUser = { uid, name, pin };
+      saveUserProfile(uid, name, pin);
+    }
+    $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+    showScreen('dash-screen');
+    refreshDash();
+    refreshReviewBadge();
+  });
 }
 
 $('btn-switch-user').addEventListener('click',()=>{
@@ -149,47 +171,77 @@ $('btn-switch-user').addEventListener('click',()=>{
 
 /* ─── DASHBOARD ─── */
 function refreshDash(){
-  const data=getData(currentUser);
-  const today=fmtDate(now());
-  const monthPrefix=today.slice(0,7);
-  const combined=getCombinedExpenses();
+  if(!currentUser) return;
+  const uid = currentUser.uid;
+  const today = fmtDate(now());
+  const monthPrefix = today.slice(0,7);
 
-  const todaySum=combined.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
-  const monthSum=combined.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
+  loadSettings(uid).then(settings=>{
+    const ownerUid = settings.ownerUid || null;
 
-  $('hero-today').textContent=fmtMoney(todaySum);
-  $('hero-month').textContent=fmtMoney(monthSum);
+    // Load own expenses
+    loadExpenses(uid).then(own=>{
+      let combined = own.map(e=>({...e,_user:currentUser.name,_uid:uid}));
 
-  // quick tiles (from combined history frequency)
-  const tiles=$('quick-tiles');
-  tiles.innerHTML='';
-  const freq={};
+      // If this user has an owner, only show own data (Farah case)
+      // If this user IS an owner (has approved links), merge partner data
+      loadOwnerLinks(uid).then(links=>{
+        const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+        const isOwner = approved.length > 0;
+
+        if(isOwner && !ownerUid){
+          // Owner view: merge all approved partners' APPROVED expenses
+          const fetches = approved.map(([puid])=> loadExpenses(puid).then(list=> list.filter(e=>e.status!=='rejected').map(e=>({...e,_user:links[puid].name,_uid:puid}))) );
+          Promise.all(fetches).then(partnerLists=>{
+            partnerLists.forEach(pl=> combined = combined.concat(pl));
+            renderDash(combined, today, monthPrefix);
+          });
+        }else{
+          // Partner view or solo: show own data only
+          renderDash(combined, today, monthPrefix);
+        }
+      });
+    });
+  });
+}
+
+function renderDash(combined, today, monthPrefix){
+  const todaySum = combined.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
+  const monthSum = combined.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
+  $('hero-today').textContent = fmtMoney(todaySum);
+  $('hero-month').textContent = fmtMoney(monthSum);
+
+  // Quick tiles
+  const tiles = $('quick-tiles');
+  tiles.innerHTML = '';
+  const freq = {};
   combined.forEach(e=>{ freq[e.merchant]=(freq[e.merchant]||0)+1; });
-  const hist=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([m])=>m);
-  const toShow=[...new Set([...hist,...QUICK_TILES.map(t=>t.merchant)])].slice(0,12);
+  const hist = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([m])=>m);
+  const toShow = [...new Set([...hist, ...QUICK_TILES.map(t=>t.merchant)])].slice(0,12);
   toShow.forEach(m=>{
-    const el=document.createElement('div');
-    el.className='tile';
-    el.textContent=m;
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.textContent = m;
     el.addEventListener('click',()=>openAdd(m,detectCategory(m)));
     tiles.appendChild(el);
   });
 
-  // recent (combined, tagged)
-  const recent=$('recent-list');
-  recent.innerHTML='';
-  const recentList=combined.sort((a,b)=>b.timestamp-a.timestamp).slice(0,20);
+  // Recent list
+  const recent = $('recent-list');
+  recent.innerHTML = '';
+  const recentList = combined.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,20);
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
     recentList.forEach(e=>{
-      const isPartner=e._user&&e._user.toLowerCase()!==currentUser.name.toLowerCase();
-      const tag=isPartner?`<span class="partner-tag">${esc(e._user)}</span>`:'';
-      const item=document.createElement('div');
-      item.className='item';
-      item.innerHTML=`
+      const isPartner = e._uid !== currentUser.uid;
+      const tag = isPartner ? `<span class="partner-tag">${esc(e._user)}</span>` : '';
+      const statusLabel = e.status==='pending' ? ' <span style="color:var(--danger);font-size:0.7rem">[PENDING]</span>' : '';
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `
         <div class="item-left">
-          <span class="item-name">${esc(e.merchant)}${tag}</span>
+          <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
           <span class="item-meta">${e.category} · ${e.date}</span>
         </div>
         <span class="item-amount">${fmtMoney(e.amount)}</span>
@@ -245,14 +297,14 @@ function buildSuggest(){
   const val=$('add-merchant').value.toLowerCase().trim();
   const box=$('merchant-suggest');
   if(!val){ box.innerHTML=''; return; }
-  const matches=[];
-  const combined=getCombinedExpenses();
-  combined.forEach(e=>{
-    if(e.merchant.toLowerCase().includes(val)) matches.push(e.merchant);
+  if(!currentUser){ box.innerHTML=''; return; }
+  loadExpenses(currentUser.uid).then(list=>{
+    const matches=[];
+    list.forEach(e=>{ if(e.merchant.toLowerCase().includes(val)) matches.push(e.merchant); });
+    QUICK_TILES.forEach(t=>{ if(t.merchant.toLowerCase().includes(val)) matches.push(t.merchant); });
+    const uniq=[...new Set(matches)].slice(0,6);
+    box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
   });
-  QUICK_TILES.forEach(t=>{ if(t.merchant.toLowerCase().includes(val)) matches.push(t.merchant); });
-  const uniq=[...new Set(matches)].slice(0,6);
-  box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
 }
 window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); $('cat-detected').textContent=detectCategory(m); $('add-category').value=detectCategory(m); };
 
@@ -272,119 +324,247 @@ $('btn-save').addEventListener('click',()=>{
   if(!merchant){ alert('Enter merchant'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
 
-  const data=getData(currentUser);
-  data.expenses.push({
-    id: Date.now().toString(36)+Math.random().toString(36).slice(2,5),
-    merchant,
-    amount,
-    category,
+  const ts = Date.now();
+  const expense = {
+    merchant, amount, category,
     date: fmtDate(now()),
-    timestamp: Date.now()
+    timestamp: ts,
+    status: 'pending'
+  };
+
+  loadSettings(currentUser.uid).then(settings=>{
+    // If linked to an owner, stay pending. If solo, auto-approve.
+    if(!settings.ownerUid){
+      expense.status = 'approved';
+    }
+    saveExpense(currentUser.uid, expense).then(()=>{
+      showScreen('dash-screen');
+      refreshDash();
+    });
   });
-  setData(currentUser,data);
-  showScreen('dash-screen');
-  refreshDash();
 });
+
+/* ─── REVIEW SCREEN ─── */
+$('btn-review').addEventListener('click',()=>{
+  showScreen('review-screen');
+  renderReview();
+});
+$('btn-review-back').addEventListener('click',()=>{ showScreen('dash-screen'); });
+
+function refreshReviewBadge(){
+  if(!currentUser) return;
+  const uid = currentUser.uid;
+  loadOwnerLinks(uid).then(links=>{
+    const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+    if(approved.length===0){ $('btn-review').classList.add('hidden'); return; }
+    let count = 0;
+    const fetches = approved.map(([puid])=> loadExpenses(puid).then(list=>{
+      list.forEach(e=>{ if(e.status==='pending') count++; });
+    }));
+    Promise.all(fetches).then(()=>{
+      pendingCount = count;
+      if(count>0){
+        $('btn-review').classList.remove('hidden');
+        $('pending-badge').textContent = count;
+        $('pending-badge').classList.remove('hidden');
+      }else{
+        $('btn-review').classList.remove('hidden');
+        $('pending-badge').classList.add('hidden');
+      }
+    });
+  });
+}
+
+function renderReview(){
+  const list = $('review-list');
+  list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
+  if(!currentUser) return;
+
+  loadOwnerLinks(currentUser.uid).then(links=>{
+    const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+    if(approved.length===0){ list.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No partners linked</span></div></div>'; return; }
+
+    let pendingItems = [];
+    const fetches = approved.map(([puid])=> loadExpenses(puid).then(expenses=>{
+      expenses.filter(e=>e.status==='pending').forEach(e=>{
+        pendingItems.push({...e,_uid:puid,_user:links[puid].name});
+      });
+    }));
+
+    Promise.all(fetches).then(()=>{
+      pendingItems.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
+      if(pendingItems.length===0){
+        list.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No pending expenses to review</span></div></div>';
+        return;
+      }
+      list.innerHTML = '';
+      pendingItems.forEach(e=>{
+        const item = document.createElement('div');
+        item.className = 'item review-item';
+        item.innerHTML = `
+          <div class="item-left">
+            <span class="item-name">${esc(e.merchant)} <span class="partner-tag">${esc(e._user)}</span></span>
+            <span class="item-meta">${e.category} · ${e.date}</span>
+          </div>
+          <span class="item-amount">${fmtMoney(e.amount)}</span>
+          <div class="review-actions">
+            <button class="btn-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">Approve</button>
+            <button class="btn-reject" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">Reject</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      list.querySelectorAll('.btn-approve').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const id=btn.dataset.id, uid=btn.dataset.uid;
+          updateExpenseStatus(uid, id, 'approved').then(()=>{ renderReview(); refreshReviewBadge(); refreshDash(); });
+        });
+      });
+      list.querySelectorAll('.btn-reject').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const id=btn.dataset.id, uid=btn.dataset.uid;
+          updateExpenseStatus(uid, id, 'rejected').then(()=>{ renderReview(); refreshReviewBadge(); refreshDash(); });
+        });
+      });
+    });
+  });
+}
 
 /* ─── SETTINGS ─── */
 $('btn-settings').addEventListener('click',()=>{
   showScreen('settings-screen');
-  renderPartnerUI();
+  renderSettings();
 });
 $('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
 
-function renderPartnerUI(){
-  const current=getPartner();
-  const reg=getAllUsers();
-  const others=reg.filter(u=>u!==currentUser.name.toLowerCase());
+function renderSettings(){
+  if(!currentUser) return;
+  const uid = currentUser.uid;
+  $('set-my-uid').textContent = uid;
 
-  if(current){
-    $('partner-current').innerHTML=`Linked to <b>${esc(current)}</b>`;
-    $('partner-current').classList.remove('hidden');
-    $('btn-link-partner').classList.add('hidden');
-    $('btn-unlink-partner').classList.remove('hidden');
-    $('partner-select').classList.add('hidden');
-  }else{
-    $('partner-current').textContent='No partner linked';
-    $('partner-current').classList.remove('hidden');
-    $('btn-link-partner').classList.remove('hidden');
-    $('btn-unlink-partner').classList.add('hidden');
-    const sel=$('partner-select');
-    sel.innerHTML='<option value="">Select partner...</option>';
-    if(others.length===0){
-      sel.innerHTML+='<option disabled>No other accounts found</option>';
-    }else{
-      others.forEach(u=>{
-        const opt=document.createElement('option');
-        opt.value=u; opt.textContent=u.charAt(0).toUpperCase()+u.slice(1);
-        sel.appendChild(opt);
+  loadSettings(uid).then(settings=>{
+    const ownerUid = settings.ownerUid || '';
+    $('set-owner-uid').value = ownerUid;
+    if(ownerUid){ $('btn-clear-owner').classList.remove('hidden'); }
+    else { $('btn-clear-owner').classList.add('hidden'); }
+  });
+
+  // Owner panels
+  loadOwnerLinks(uid).then(links=>{
+    const pending = Object.entries(links).filter(([id,l])=>l.status==='pending');
+    const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+
+    const pendingDiv = $('pending-links');
+    if(pending.length>0){
+      $('owner-panel').classList.remove('hidden');
+      pendingDiv.innerHTML = '';
+      pending.forEach(([puid, l])=>{
+        const row = document.createElement('div');
+        row.className = 'link-request';
+        row.innerHTML = `
+          <span>${esc(l.name)} <code>${esc(puid)}</code></span>
+          <div class="btn-row">
+            <button class="btn-primary btn-sm" data-uid="${esc(puid)}" data-action="approve">Approve</button>
+            <button class="btn-danger btn-sm" data-uid="${esc(puid)}" data-action="reject">Reject</button>
+          </div>
+        `;
+        pendingDiv.appendChild(row);
       });
+      pendingDiv.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const puid=btn.dataset.uid;
+          if(btn.dataset.action==='approve') approveLink(uid,puid).then(renderSettings);
+          else rejectLink(uid,puid).then(renderSettings);
+        });
+      });
+    }else{
+      $('owner-panel').classList.add('hidden');
     }
-    sel.classList.remove('hidden');
-  }
+
+    const approvedDiv = $('approved-links');
+    if(approved.length>0){
+      $('approved-panel').classList.remove('hidden');
+      approvedDiv.innerHTML = '';
+      approved.forEach(([puid, l])=>{
+        const row = document.createElement('div');
+        row.className = 'link-request';
+        row.innerHTML = `
+          <span>${esc(l.name)} <code>${esc(puid)}</code></span>
+          <button class="btn-danger btn-sm" data-uid="${esc(puid)}">Remove</button>
+        `;
+        approvedDiv.appendChild(row);
+      });
+      approvedDiv.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const puid=btn.dataset.uid;
+          if(confirm('Remove partner link?')) removeLink(uid,puid).then(renderSettings);
+        });
+      });
+    }else{
+      $('approved-panel').classList.add('hidden');
+    }
+  });
 }
 
-$('btn-link-partner').addEventListener('click',()=>{
-  const val=$('partner-select').value;
-  if(!val){ alert('Select a partner'); return; }
-  setPartner(val);
-  renderPartnerUI();
-  alert(`Linked to ${val}`);
+$('btn-save-owner').addEventListener('click',()=>{
+  const ownerUid = $('set-owner-uid').value.trim();
+  if(!ownerUid){ alert('Enter partner Account ID'); return; }
+  if(ownerUid===currentUser.uid){ alert('Cannot link to yourself'); return; }
+  loadUserProfile(ownerUid).then(profile=>{
+    if(!profile){ alert('Partner account not found'); return; }
+    saveSettings(currentUser.uid, { ownerUid }).then(()=>{
+      requestLink(currentUser.uid, ownerUid, currentUser.name).then(()=>{
+        alert('Link request sent. Waiting for partner approval.');
+        renderSettings();
+      });
+    });
+  });
 });
 
-$('btn-unlink-partner').addEventListener('click',()=>{
-  if(confirm('Unlink partner?')){
-    setPartner(null);
-    renderPartnerUI();
-  }
+$('btn-clear-owner').addEventListener('click',()=>{
+  if(!confirm('Unlink from owner?')) return;
+  loadSettings(currentUser.uid).then(settings=>{
+    const oldOwner = settings.ownerUid;
+    saveSettings(currentUser.uid, {}).then(()=>{
+      if(oldOwner) removeLink(oldOwner, currentUser.uid);
+      renderSettings();
+      refreshDash();
+    });
+  });
 });
 
 $('btn-save-pin').addEventListener('click',()=>{
   const p=$('set-pin').value.trim();
   if(!/^\d{4}$/.test(p)){ alert('PIN must be 4 digits'); return; }
-  const data=getData(currentUser);
-  data.pin=p; currentUser.pin=p;
-  setData(currentUser,data);
-  alert('PIN updated');
-  $('set-pin').value='';
+  saveUserProfile(currentUser.uid, currentUser.name, p).then(()=>{
+    currentUser.pin = p;
+    alert('PIN updated');
+    $('set-pin').value='';
+  });
 });
 
 $('btn-export').addEventListener('click',()=>{
-  const data=getData(currentUser);
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`spent_${currentUser.name}_${fmtDate(now())}.json`;
-  a.click();
-});
-
-$('btn-import').addEventListener('click',()=>$('import-file').click());
-$('import-file').addEventListener('change',e=>{
-  const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const data=JSON.parse(r.result);
-      if(!Array.isArray(data.expenses)) throw new Error('bad format');
-      if(confirm(`Import ${data.expenses.length} expenses? This merges into current data.`)){
-        const old=getData(currentUser);
-        old.expenses=old.expenses.concat(data.expenses);
-        setData(currentUser,old);
-        refreshDash();
-        showScreen('dash-screen');
-      }
-    }catch(err){ alert('Invalid file'); }
-  };
-  r.readAsText(f);
-  $('import-file').value='';
+  if(!currentUser) return;
+  Promise.all([loadUserProfile(currentUser.uid), loadExpenses(currentUser.uid)]).then(([profile, expenses])=>{
+    const payload = { name: profile.name, uid: currentUser.uid, expenses };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `spent_${profile.name}_${fmtDate(now())}.json`;
+    a.click();
+  });
 });
 
 $('btn-clear').addEventListener('click',()=>{
+  if(!currentUser) return;
   if(confirm('DELETE ALL DATA for '+currentUser.name+'? Cannot undo.')){
-    localStorage.removeItem(lsKey(currentUser));
-    setData(currentUser,{pin:currentUser.pin,expenses:[],settings:{}});
-    refreshDash();
-    showScreen('dash-screen');
+    userRef(currentUser.uid).remove().then(()=>{
+      currentUser = null;
+      $('login-name').value='';
+      $('login-pin').value='';
+      showScreen('login-screen');
+    });
   }
 });
 
