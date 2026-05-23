@@ -57,6 +57,8 @@ let authReady = false;
 let summaryFilter = 'both';
 let isSubAccount = false;
 let editTarget = null;    // { uid, id } when editing
+let lastMerchant = '';
+let lastCategory = 'Others';
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -384,15 +386,16 @@ function openAdd(preMerchant,preCategory){
   editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
-  $('add-merchant').value=preMerchant||'';
-  const cat=preCategory||(preMerchant?detectCategory(preMerchant):'Others');
+  const merchant = preMerchant || lastMerchant || '';
+  $('add-merchant').value = merchant;
+  const cat = preCategory || (merchant ? detectCategory(merchant) : lastCategory);
   $('cat-detected').textContent=cat;
   $('add-category').value=cat;
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
   buildSuggest();
   showScreen('add-screen');
-  if(!preMerchant) setTimeout(()=>$('add-merchant').focus(),50);
+  if(!merchant) setTimeout(()=>$('add-merchant').focus(),50);
 }
 
 function openEdit(expense){
@@ -469,6 +472,8 @@ $('btn-save').addEventListener('click',()=>{
     // UPDATE MODE
     const data = { merchant, amount, category };
     updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
+      lastMerchant = merchant;
+      lastCategory = category;
       editTarget = null;
       showScreen('dash-screen');
       refreshDash();
@@ -488,6 +493,8 @@ $('btn-save').addEventListener('click',()=>{
         expense.status = 'approved';
       }
       saveExpense(currentUser.uid, expense).then(()=>{
+        lastMerchant = merchant;
+        lastCategory = category;
         showScreen('dash-screen');
         refreshDash();
       });
