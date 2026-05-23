@@ -55,6 +55,8 @@ let amountStr = '';
 let pendingCount = 0;
 let authReady = false;
 let summaryFilter = 'both';
+let isSubAccount = false;
+let editTarget = null;    // { uid, id } when editing
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -82,8 +84,9 @@ auth.onAuthStateChanged(user=>{
   authReady = true;
   if(user){
     if(!currentUser){
-      loadUserProfile(user.uid).then(profile=>{
+      Promise.all([loadUserProfile(user.uid), loadSettings(user.uid)]).then(([profile, settings])=>{
         currentUser = { uid:user.uid, name:profile?.name||user.displayName||'User', email:user.email };
+        isSubAccount = !!settings.ownerUid;
         $('dash-greeting').textContent = 'Hello, '+currentUser.name;
         showScreen('dash-screen');
         refreshDash();
@@ -93,6 +96,7 @@ auth.onAuthStateChanged(user=>{
     }
   }else{
     currentUser = null;
+    isSubAccount = false;
     detachListeners();
     showScreen('login-screen');
   }
@@ -141,8 +145,26 @@ function rejectLink(ownerUid, partnerUid){
 function removeLink(ownerUid, partnerUid){
   return ownerLinksRef(ownerUid).child(partnerUid).remove();
 }
+function deleteExpense(uid, expId){
+  return expRef(uid).child(expId).remove();
+}
+function updateExpense(uid, expId, data){
+  return expRef(uid).child(expId).update(data);
+}
 function loadOwnerLinks(ownerUid){
   return ownerLinksRef(ownerUid).once('value').then(s=>s.val()||{});
+}
+
+function checkEditAllowed(expense, isOwnerView){
+  const isOwn = expense._uid === currentUser.uid;
+  // Main viewing Sub's expense: always allowed
+  if(isOwnerView && !isOwn) return true;
+  // Your own expense: allowed if Main/solo, or if Sub and still pending
+  if(isOwn) {
+    if(!isSubAccount) return true; // Main or solo user
+    return expense.status === 'pending'; // Sub: only pending
+  }
+  return false;
 }
 
 /* ─── REAL-TIME LISTENERS ─── */
@@ -227,7 +249,7 @@ function refreshDash(){
   const monthPrefix = today.slice(0,7);
 
   loadSettings(uid).then(settings=>{
-    const ownerUid = settings.ownerUid || null;
+    isSubAccount = !!settings.ownerUid;
     summaryFilter = settings.partnerFilter || 'both';
 
     // Load own expenses
@@ -259,6 +281,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   // Filter for hero totals based on global summaryFilter
   let heroData = combined;
   const hasPartners = approvedPartners && approvedPartners.length > 0;
+  const isOwnerView = hasPartners;
   if(hasPartners && summaryFilter !== 'both'){
     heroData = combined.filter(e => {
       if(summaryFilter === 'me') return e._uid === currentUser.uid;
@@ -303,16 +326,52 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       const isPartner = e._uid !== currentUser.uid;
       const tag = isPartner ? `<span class="partner-tag">${esc(e._user)}</span>` : '';
       const statusLabel = e.status==='pending' ? ' <span style="color:var(--danger);font-size:0.7rem">[PENDING]</span>' : '';
+      const canEdit = checkEditAllowed(e, isOwnerView);
+      const isOwner = isOwnerView && e._uid !== currentUser.uid;
+
       const item = document.createElement('div');
       item.className = 'item';
+      item.style.cursor = canEdit ? 'pointer' : 'default';
+      item.dataset.uid = e._uid;
+      item.dataset.id = e.id;
+
+      // Build inline actions row
+      let inlineActions = '';
+      if(isOwner && e.status === 'pending'){
+        inlineActions = `<span class="inline-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">✓ Approve</span>`;
+      }
+
       item.innerHTML = `
         <div class="item-left">
-          <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
+          <div class="item-name-row">
+            <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
+            ${inlineActions}
+          </div>
           <span class="item-meta">${e.category} · ${e.date}</span>
         </div>
         <span class="item-amount">${fmtMoney(e.amount)}</span>
       `;
+      // Tap to edit
+      if(canEdit){
+        item.addEventListener('click',(ev)=>{
+          // Don't edit if tapped on inline approve button
+          if(ev.target.classList.contains('inline-approve')) return;
+          openEdit(e);
+        });
+      }
       recent.appendChild(item);
+    });
+
+    // Inline approve listeners
+    recent.querySelectorAll('.inline-approve').forEach(btn=>{
+      btn.addEventListener('click',(ev)=>{
+        ev.stopPropagation();
+        const id=btn.dataset.id, uid=btn.dataset.uid;
+        updateExpenseStatus(uid, id, 'approved').then(()=>{
+          refreshDash();
+          refreshReviewBadge();
+        });
+      });
     });
   }
 }
@@ -322,15 +381,31 @@ $('btn-add').addEventListener('click',()=>openAdd());
 $('btn-add-back').addEventListener('click',()=>{ showScreen('dash-screen'); refreshDash(); });
 
 function openAdd(preMerchant,preCategory){
+  editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
   $('add-merchant').value=preMerchant||'';
   const cat=preCategory||(preMerchant?detectCategory(preMerchant):'Others');
   $('cat-detected').textContent=cat;
   $('add-category').value=cat;
+  $('btn-save').textContent = 'Save';
+  $('btn-delete').classList.add('hidden');
   buildSuggest();
   showScreen('add-screen');
   if(!preMerchant) setTimeout(()=>$('add-merchant').focus(),50);
+}
+
+function openEdit(expense){
+  editTarget = { uid: expense._uid, id: expense.id };
+  amountStr = String(expense.amount);
+  $('amount-display').textContent = expense.amount.toFixed(2);
+  $('add-merchant').value = expense.merchant;
+  $('cat-detected').textContent = expense.category;
+  $('add-category').value = expense.category;
+  $('btn-save').textContent = 'Update';
+  $('btn-delete').classList.remove('hidden');
+  buildSuggest();
+  showScreen('add-screen');
 }
 
 // numpad
@@ -382,7 +457,7 @@ $('cat-detected').addEventListener('click',()=>{
 });
 $('add-category').addEventListener('change',()=>{ $('cat-detected').textContent=$('add-category').value; $('cat-detected').classList.remove('hidden'); $('add-category').classList.add('hidden'); });
 
-// save
+// save / update
 $('btn-save').addEventListener('click',()=>{
   const merchant=$('add-merchant').value.trim();
   const amount=parseMoney(amountStr);
@@ -390,24 +465,46 @@ $('btn-save').addEventListener('click',()=>{
   if(!merchant){ alert('Enter merchant'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
 
-  const ts = Date.now();
-  const expense = {
-    merchant, amount, category,
-    date: fmtDate(now()),
-    timestamp: ts,
-    status: 'pending'
-  };
-
-  loadSettings(currentUser.uid).then(settings=>{
-    // If linked to an owner, stay pending. If solo, auto-approve.
-    if(!settings.ownerUid){
-      expense.status = 'approved';
-    }
-    saveExpense(currentUser.uid, expense).then(()=>{
+  if(editTarget){
+    // UPDATE MODE
+    const data = { merchant, amount, category };
+    updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
+      editTarget = null;
       showScreen('dash-screen');
       refreshDash();
     });
-  });
+  }else{
+    // CREATE MODE
+    const ts = Date.now();
+    const expense = {
+      merchant, amount, category,
+      date: fmtDate(now()),
+      timestamp: ts,
+      status: 'pending'
+    };
+
+    loadSettings(currentUser.uid).then(settings=>{
+      if(!settings.ownerUid){
+        expense.status = 'approved';
+      }
+      saveExpense(currentUser.uid, expense).then(()=>{
+        showScreen('dash-screen');
+        refreshDash();
+      });
+    });
+  }
+});
+
+// delete (shown only in edit mode)
+$('btn-delete').addEventListener('click',()=>{
+  if(!editTarget){ return; }
+  if(confirm('Delete this expense? Cannot undo.')){
+    deleteExpense(editTarget.uid, editTarget.id).then(()=>{
+      editTarget = null;
+      showScreen('dash-screen');
+      refreshDash();
+    });
+  }
 });
 
 /* ─── REVIEW SCREEN ─── */

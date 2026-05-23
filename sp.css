@@ -377,3 +377,33 @@ html, body {
 .danger-zone { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px; }
 .version-field { margin-top: 12px; text-align: center; }
 #app-version { color: var(--muted); font-size: 12px; letter-spacing: 0.5px; }
+
+/* INLINE APPROVE IN LIST */
+.item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.inline-approve {
+  display: inline-block;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.inline-approve:active { opacity: 0.7; }
+
+/* DELETE BUTTON IN ADD SCREEN */
+.btn-danger.btn-lg {
+  padding: 16px 24px;
+  font-size: 1.1rem;
+  width: 100%;
+  margin-top: 12px;
+}
