@@ -16,6 +16,8 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
+const APP_VER = 'v2.0-firebase';
+
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [
   'Food & Dining','Groceries','Transport','Shopping',
@@ -442,6 +444,7 @@ function renderSettings(){
   if(!currentUser) return;
   const uid = currentUser.uid;
   $('set-my-uid').textContent = uid;
+  $('app-version').textContent = APP_VER;
 
   loadSettings(uid).then(settings=>{
     const ownerUid = settings.ownerUid || '';

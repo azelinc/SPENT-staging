@@ -353,3 +353,5 @@ html, body {
 /* SETTINGS */
 .settings-body { padding: 16px 20px 80px; max-width: 480px; margin: 0 auto; }
 .danger-zone { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px; }
+.version-field { margin-top: 12px; text-align: center; }
+#app-version { color: var(--muted); font-size: 12px; letter-spacing: 0.5px; }
