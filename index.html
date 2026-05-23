@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.0.2 -->
+<!-- v2.0.3 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="sp.css?v=2.0.2">
+<link rel="stylesheet" href="sp.css?v=2.0.3">
 </head>
 <body>
 <div id="app">
@@ -40,12 +40,12 @@
     </header>
 
     <div class="hero">
-      <div class="hero-block">
-        <div class="hero-label">Today</div>
+      <div class="hero-block" id="hero-today-block" style="cursor:pointer">
+        <div class="hero-label">Today <span class="hero-filter" id="hero-filter"></span></div>
         <div class="hero-num" id="hero-today">RM 0.00</div>
       </div>
-      <div class="hero-block">
-        <div class="hero-label">This Month</div>
+      <div class="hero-block" id="hero-month-block" style="cursor:pointer">
+        <div class="hero-label">This Month <span class="hero-filter" id="hero-filter-month"></span></div>
         <div class="hero-num" id="hero-month">RM 0.00</div>
       </div>
     </div>
@@ -145,16 +145,6 @@
         </div>
       </div>
 
-      <div class="field">
-        <label>Summary Filter</label>
-        <p class="field-hint">Show totals for Today / Month.</p>
-        <select id="set-filter">
-          <option value="both">Both (Me + Ibu)</option>
-          <option value="me">Just Me</option>
-          <option value="ibu">Just Ibu</option>
-        </select>
-      </div>
-
       <div class="field hidden" id="owner-panel">
         <label>Pending Sub Requests</label>
         <div id="pending-links"></div>
@@ -189,6 +179,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<script src="sp.js?v=2.0.2"></script>
+<script src="sp.js?v=2.0.3"></script>
 </body>
 </html>

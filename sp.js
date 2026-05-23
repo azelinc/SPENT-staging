@@ -54,6 +54,7 @@ let currentUser = null;   // { uid, name, email }
 let amountStr = '';
 let pendingCount = 0;
 let authReady = false;
+let summaryFilter = 'both';
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -227,7 +228,7 @@ function refreshDash(){
 
   loadSettings(uid).then(settings=>{
     const ownerUid = settings.ownerUid || null;
-    const partnerFilter = settings.partnerFilter || 'both';
+    summaryFilter = settings.partnerFilter || 'both';
 
     // Load own expenses
     loadExpenses(uid).then(own=>{
@@ -243,25 +244,25 @@ function refreshDash(){
           const fetches = approved.map(([puid])=> loadExpenses(puid).then(list=> list.filter(e=>e.status!=='rejected').map(e=>({...e,_user:links[puid].name,_uid:puid}))) );
           Promise.all(fetches).then(partnerLists=>{
             partnerLists.forEach(pl=> combined = combined.concat(pl));
-            renderDash(combined, today, monthPrefix, partnerFilter, approved);
+            renderDash(combined, today, monthPrefix, approved);
           });
         }else{
           // Solo or partner-only: show own data only
-          renderDash(combined, today, monthPrefix, partnerFilter, approved);
+          renderDash(combined, today, monthPrefix, approved);
         }
       });
     });
   });
 }
 
-function renderDash(combined, today, monthPrefix, partnerFilter, approvedPartners){
-  // Filter for hero totals based on partnerFilter setting
+function renderDash(combined, today, monthPrefix, approvedPartners){
+  // Filter for hero totals based on global summaryFilter
   let heroData = combined;
   const hasPartners = approvedPartners && approvedPartners.length > 0;
-  if(hasPartners && partnerFilter !== 'both'){
+  if(hasPartners && summaryFilter !== 'both'){
     heroData = combined.filter(e => {
-      if(partnerFilter === 'me') return e._uid === currentUser.uid;
-      if(partnerFilter === 'ibu') return e._uid !== currentUser.uid;
+      if(summaryFilter === 'me') return e._uid === currentUser.uid;
+      if(summaryFilter === 'ibu') return e._uid !== currentUser.uid;
       return true;
     });
   }
@@ -270,6 +271,11 @@ function renderDash(combined, today, monthPrefix, partnerFilter, approvedPartner
   const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
+
+  // Update filter labels on hero blocks
+  const filterLabel = summaryFilter==='both' ? 'Both' : summaryFilter==='me' ? 'Me' : 'Ibu';
+  $('hero-filter').textContent = filterLabel;
+  $('hero-filter-month').textContent = filterLabel;
 
   // Quick tiles (all data)
   const tiles = $('quick-tiles');
@@ -510,8 +516,8 @@ function renderSettings(){
     if(ownerUid){ $('btn-clear-owner').classList.remove('hidden'); }
     else { $('btn-clear-owner').classList.add('hidden'); }
     
-    // Load saved filter, default 'both'
-    $('set-filter').value = settings.partnerFilter || 'both';
+    // Sync saved filter into global state
+    summaryFilter = settings.partnerFilter || 'both';
   });
 
   // Owner panels
@@ -598,25 +604,7 @@ $('btn-clear-owner').addEventListener('click',()=>{
   });
 });
 
-// Summary filter change
-$('set-filter').addEventListener('change',()=>{
-  const val = $('set-filter').value;
-  saveSettings(currentUser.uid, { partnerFilter: val }).then(()=>{
-    refreshDash();
-  });
-});
-
-/*
-$('btn-save-pin').addEventListener('click',()=>{
-  const p=$('set-pin').value.trim();
-  if(!/^\d{4}$/.test(p)){ alert('PIN must be 4 digits'); return; }
-  saveUserProfile(currentUser.uid, currentUser.name, p).then(()=>{
-    currentUser.pin = p;
-    alert('PIN updated');
-    $('set-pin').value='';
-  });
-});
-*/
+/* ─── HERO FILTER CLICK ─── */
 
 $('btn-export').addEventListener('click',()=>{
   if(!currentUser) return;
@@ -642,6 +630,24 @@ $('btn-clear').addEventListener('click',()=>{
     });
   }
 });
+
+/* ─── HERO FILTER CLICK ─── */
+const FILTER_ORDER = ['both','me','ibu'];
+$('hero-today-block').addEventListener('click',()=>cycleHeroFilter());
+$('hero-month-block').addEventListener('click',()=>cycleHeroFilter());
+
+function cycleHeroFilter(){
+  if(!currentUser) return;
+  loadOwnerLinks(currentUser.uid).then(links=>{
+    const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+    if(approved.length===0) return; // no subs to filter
+    const idx = FILTER_ORDER.indexOf(summaryFilter);
+    summaryFilter = FILTER_ORDER[(idx+1) % FILTER_ORDER.length];
+    saveSettings(currentUser.uid, { partnerFilter: summaryFilter }).then(()=>{
+      refreshDash();
+    });
+  });
+}
 
 /* ─── INIT ─── */
 if('serviceWorker' in navigator){
