@@ -292,10 +292,10 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
     tiles.appendChild(el);
   });
 
-  // Recent list (all data)
+  // Recent list (filtered like hero)
   const recent = $('recent-list');
   recent.innerHTML = '';
-  const recentList = combined.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,20);
+  const recentList = heroData.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,20);
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
