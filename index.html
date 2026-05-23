@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0f19">
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="main.css?v=1.0">
+<link rel="stylesheet" href="main.css?v=1.1">
 </head>
 <body>
 <div id="app">
@@ -114,6 +114,14 @@
     </header>
     <div class="settings-body">
       <div class="field">
+        <label>Partner Link</label>
+        <p class="field-hint">Combine another user's expenses into this dashboard</p>
+        <div id="partner-current" class="partner-status">No partner linked</div>
+        <select id="partner-select" class="hidden"></select>
+        <button id="btn-link-partner" class="btn-primary btn-sm">Link Partner</button>
+        <button id="btn-unlink-partner" class="btn-danger btn-sm hidden">Unlink</button>
+      </div>
+      <div class="field">
         <label>Change PIN</label>
         <input type="password" id="set-pin" placeholder="New 4-digit PIN" maxlength="4" inputmode="numeric">
         <button id="btn-save-pin" class="btn-primary btn-sm">Save PIN</button>
@@ -132,6 +140,6 @@
 
 </div>
 
-<script src="app.js?v=1.0"></script>
+<script src="app.js?v=1.1"></script>
 </body>
 </html>

@@ -45,6 +45,8 @@ function now(){ return new Date(); }
 function fmtDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function fmtMoney(n){ return 'RM '+n.toFixed(2); }
 function parseMoney(s){ const v=parseFloat(s); return isNaN(v)?0:v; }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
 function getData(user){
   const raw=localStorage.getItem(lsKey(user));
   return raw?JSON.parse(raw):{pin:user.pin, expenses:[], settings:{}};
@@ -57,6 +59,56 @@ function detectCategory(merchant){
     if(keywords.some(k=>m.includes(k))) return cat.replace(/\b\w/g,l=>l.toUpperCase()).replace('&',' & ').replace('N Go','N Go');
   }
   return 'Others';
+}
+
+/* ─── USERS ─── */
+function getAllUsers(){
+  const users=[];
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key&&key.startsWith(STORAGE_VER+'_')){
+      try{
+        const d=JSON.parse(localStorage.getItem(key));
+        // recover name from key hash? no — we don't have reverse hash.
+        // instead scan keys for name in settings.name if stored, else skip
+      }catch(e){}
+    }
+  }
+  // better: keep a registry key
+  const reg=JSON.parse(localStorage.getItem(STORAGE_VER+'_users')||'[]');
+  return reg;
+}
+function addUserToRegistry(name){
+  const reg=JSON.parse(localStorage.getItem(STORAGE_VER+'_users')||'[]');
+  const n=name.toLowerCase();
+  if(!reg.includes(n)) reg.push(n);
+  localStorage.setItem(STORAGE_VER+'_users',JSON.stringify(reg));
+}
+function getPartner(){
+  const data=getData(currentUser);
+  return data.settings.partner||null;
+}
+function setPartner(name){
+  const data=getData(currentUser);
+  data.settings.partner=name?name.toLowerCase():null;
+  setData(currentUser,data);
+}
+function getPartnerData(){
+  const p=getPartner();
+  if(!p) return null;
+  const key=`${STORAGE_VER}_${hash(p)}`;
+  const raw=localStorage.getItem(key);
+  return raw?JSON.parse(raw):null;
+}
+
+function getCombinedExpenses(){
+  const data=getData(currentUser);
+  let list=data.expenses.map(e=>({...e,_user:currentUser.name}));
+  const partner=getPartnerData();
+  if(partner&&partner.expenses){
+    list=list.concat(partner.expenses.map(e=>({...e,_user:getPartner()})));
+  }
+  return list;
 }
 
 /* ─── NAV ─── */
@@ -81,6 +133,7 @@ function doLogin(){
   }else{
     setData({name:name.toLowerCase(),pin},{pin,expenses:[],settings:{}});
   }
+  addUserToRegistry(name.toLowerCase());
   currentUser={name,pin};
   $('dash-greeting').textContent='Hello, '+name;
   showScreen('dash-screen');
@@ -99,37 +152,44 @@ function refreshDash(){
   const data=getData(currentUser);
   const today=fmtDate(now());
   const monthPrefix=today.slice(0,7);
+  const combined=getCombinedExpenses();
 
-  const todaySum=data.expenses.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
-  const monthSum=data.expenses.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
+  const todaySum=combined.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
+  const monthSum=combined.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
 
   $('hero-today').textContent=fmtMoney(todaySum);
   $('hero-month').textContent=fmtMoney(monthSum);
 
-  // quick tiles
+  // quick tiles (from combined history frequency)
   const tiles=$('quick-tiles');
   tiles.innerHTML='';
-  QUICK_TILES.forEach(t=>{
+  const freq={};
+  combined.forEach(e=>{ freq[e.merchant]=(freq[e.merchant]||0)+1; });
+  const hist=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([m])=>m);
+  const toShow=[...new Set([...hist,...QUICK_TILES.map(t=>t.merchant)])].slice(0,12);
+  toShow.forEach(m=>{
     const el=document.createElement('div');
     el.className='tile';
-    el.textContent=t.merchant;
-    el.addEventListener('click',()=>openAdd(t.merchant,t.category));
+    el.textContent=m;
+    el.addEventListener('click',()=>openAdd(m,detectCategory(m)));
     tiles.appendChild(el);
   });
 
-  // recent
+  // recent (combined, tagged)
   const recent=$('recent-list');
   recent.innerHTML='';
-  const recentList=data.expenses.slice().sort((a,b)=>b.timestamp-a.timestamp).slice(0,20);
+  const recentList=combined.sort((a,b)=>b.timestamp-a.timestamp).slice(0,20);
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
     recentList.forEach(e=>{
+      const isPartner=e._user&&e._user.toLowerCase()!==currentUser.name.toLowerCase();
+      const tag=isPartner?`<span class="partner-tag">${esc(e._user)}</span>`:'';
       const item=document.createElement('div');
       item.className='item';
       item.innerHTML=`
         <div class="item-left">
-          <span class="item-name">${esc(e.merchant)}</span>
+          <span class="item-name">${esc(e.merchant)}${tag}</span>
           <span class="item-meta">${e.category} · ${e.date}</span>
         </div>
         <span class="item-amount">${fmtMoney(e.amount)}</span>
@@ -138,8 +198,6 @@ function refreshDash(){
     });
   }
 }
-
-function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 /* ─── ADD EXPENSE ─── */
 $('btn-add').addEventListener('click',()=>openAdd());
@@ -158,10 +216,6 @@ function openAdd(preMerchant,preCategory){
 }
 
 // numpad
-const numpad=$('.numpad');
-if(!numpad){
-  // fallback query
-}
 document.querySelectorAll('.numpad button').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const k=btn.dataset.k;
@@ -192,13 +246,13 @@ function buildSuggest(){
   const box=$('merchant-suggest');
   if(!val){ box.innerHTML=''; return; }
   const matches=[];
-  const data=getData(currentUser);
-  data.expenses.forEach(e=>{
+  const combined=getCombinedExpenses();
+  combined.forEach(e=>{
     if(e.merchant.toLowerCase().includes(val)) matches.push(e.merchant);
   });
   QUICK_TILES.forEach(t=>{ if(t.merchant.toLowerCase().includes(val)) matches.push(t.merchant); });
   const uniq=[...new Set(matches)].slice(0,6);
-  box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
+  box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
 }
 window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); $('cat-detected').textContent=detectCategory(m); $('add-category').value=detectCategory(m); };
 
@@ -233,8 +287,57 @@ $('btn-save').addEventListener('click',()=>{
 });
 
 /* ─── SETTINGS ─── */
-$('btn-settings').addEventListener('click',()=>showScreen('settings-screen'));
+$('btn-settings').addEventListener('click',()=>{
+  showScreen('settings-screen');
+  renderPartnerUI();
+});
 $('btn-settings-back').addEventListener('click',()=>showScreen('dash-screen'));
+
+function renderPartnerUI(){
+  const current=getPartner();
+  const reg=getAllUsers();
+  const others=reg.filter(u=>u!==currentUser.name.toLowerCase());
+
+  if(current){
+    $('partner-current').innerHTML=`Linked to <b>${esc(current)}</b>`;
+    $('partner-current').classList.remove('hidden');
+    $('btn-link-partner').classList.add('hidden');
+    $('btn-unlink-partner').classList.remove('hidden');
+    $('partner-select').classList.add('hidden');
+  }else{
+    $('partner-current').textContent='No partner linked';
+    $('partner-current').classList.remove('hidden');
+    $('btn-link-partner').classList.remove('hidden');
+    $('btn-unlink-partner').classList.add('hidden');
+    const sel=$('partner-select');
+    sel.innerHTML='<option value="">Select partner...</option>';
+    if(others.length===0){
+      sel.innerHTML+='<option disabled>No other accounts found</option>';
+    }else{
+      others.forEach(u=>{
+        const opt=document.createElement('option');
+        opt.value=u; opt.textContent=u.charAt(0).toUpperCase()+u.slice(1);
+        sel.appendChild(opt);
+      });
+    }
+    sel.classList.remove('hidden');
+  }
+}
+
+$('btn-link-partner').addEventListener('click',()=>{
+  const val=$('partner-select').value;
+  if(!val){ alert('Select a partner'); return; }
+  setPartner(val);
+  renderPartnerUI();
+  alert(`Linked to ${val}`);
+});
+
+$('btn-unlink-partner').addEventListener('click',()=>{
+  if(confirm('Unlink partner?')){
+    setPartner(null);
+    renderPartnerUI();
+  }
+});
 
 $('btn-save-pin').addEventListener('click',()=>{
   const p=$('set-pin').value.trim();

@@ -267,6 +267,23 @@ html, body {
 }
 .suggest-chip:hover { border-color: var(--accent); color: var(--text); }
 
+/* PARTNER */
+.field-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+.partner-status { font-size: 0.85rem; color: var(--text); margin-bottom: 8px; }
+.partner-tag {
+  display: inline-block;
+  background: var(--accent-2);
+  color: var(--bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* SETTINGS */
 .settings-body { padding: 16px 20px 80px; max-width: 480px; margin: 0 auto; }
 .danger-zone { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 20px; }
+
