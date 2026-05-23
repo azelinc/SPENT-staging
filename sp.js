@@ -562,7 +562,7 @@ function renderSettings(){
       approvedDiv.querySelectorAll('button').forEach(btn=>{
         btn.addEventListener('click',()=>{
           const puid=btn.dataset.uid;
-          if(confirm('Remove partner link?')) removeLink(uid,puid).then(renderSettings);
+          if(confirm('Remove Sub link?')) removeLink(uid,puid).then(renderSettings);
         });
       });
     }else{
@@ -573,13 +573,13 @@ function renderSettings(){
 
 $('btn-save-owner').addEventListener('click',()=>{
   const ownerUid = $('set-owner-uid').value.trim();
-  if(!ownerUid){ alert('Enter partner Account ID'); return; }
+  if(!ownerUid){ alert('Enter Main Account ID'); return; }
   if(ownerUid===currentUser.uid){ alert('Cannot link to yourself'); return; }
   loadUserProfile(ownerUid).then(profile=>{
-    if(!profile){ alert('Partner account not found'); return; }
+    if(!profile){ alert('Main account not found'); return; }
     saveSettings(currentUser.uid, { ownerUid }).then(()=>{
       requestLink(currentUser.uid, ownerUid, currentUser.name).then(()=>{
-        alert('Link request sent. Waiting for partner approval.');
+        alert('Link request sent. Waiting for Main approval.');
         renderSettings();
       });
     });
@@ -587,7 +587,7 @@ $('btn-save-owner').addEventListener('click',()=>{
 });
 
 $('btn-clear-owner').addEventListener('click',()=>{
-  if(!confirm('Unlink from owner?')) return;
+  if(!confirm('Unlink from Main?')) return;
   loadSettings(currentUser.uid).then(settings=>{
     const oldOwner = settings.ownerUid;
     saveSettings(currentUser.uid, {}).then(()=>{

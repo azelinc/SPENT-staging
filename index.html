@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0f19">
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="sp.css?v=2.0.1">
+<link rel="stylesheet" href="sp.css?v=2.0.2">
 </head>
 <body>
 <div id="app">
@@ -112,7 +112,7 @@
   <section id="review-screen" class="screen">
     <header class="add-header">
       <button id="btn-review-back" class="btn-ghost">Back</button>
-      <span class="add-title">Review Partner Expenses</span>
+      <span class="add-title">Review Sub Expenses</span>
       <div style="width:48px"></div>
     </header>
     <div class="review-body">
@@ -135,9 +135,9 @@
       </div>
 
       <div class="field" id="owner-link-field">
-        <label>Link to Owner</label>
-        <p class="field-hint">Enter your partner's Account ID to send them your expenses for review.</p>
-        <input type="text" id="set-owner-uid" placeholder="Partner Account ID">
+        <label>Send to Main Account</label>
+        <p class="field-hint">Enter the Main Account ID to send your expenses for review.</p>
+        <input type="text" id="set-owner-uid" placeholder="Main Account ID">
         <div class="btn-row">
           <button id="btn-save-owner" class="btn-primary btn-sm">Link</button>
           <button id="btn-clear-owner" class="btn-danger btn-sm hidden">Unlink</button>
@@ -155,12 +155,12 @@
       </div>
 
       <div class="field hidden" id="owner-panel">
-        <label>Pending Link Requests</label>
+        <label>Pending Sub Requests</label>
         <div id="pending-links"></div>
       </div>
 
       <div class="field hidden" id="approved-panel">
-        <label>Approved Partners</label>
+        <label>Linked Sub Accounts</label>
         <div id="approved-links"></div>
       </div>
 
@@ -188,6 +188,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<script src="sp.js?v=2.0.1"></script>
+<script src="sp.js?v=2.0.2"></script>
 </body>
 </html>
