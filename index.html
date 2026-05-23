@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<title>SPENT</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="main.css?v=1.0">
+</head>
+<body>
+<div id="app">
+
+  <!-- LOGIN -->
+  <section id="login-screen" class="screen active">
+    <div class="login-box">
+      <h1>SPENT</h1>
+      <p class="sub">Expense tracker</p>
+      <input type="text" id="login-name" placeholder="Your name" autocomplete="off">
+      <div class="pin-row">
+        <input type="password" id="login-pin" placeholder="PIN (4 digits)" maxlength="4" inputmode="numeric" autocomplete="off">
+      </div>
+      <button id="btn-login" class="btn-primary">Enter</button>
+      <p class="hint">New name auto-creates an account</p>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="dash-screen" class="screen">
+    <header class="dash-header">
+      <div class="user-info">
+        <span id="dash-greeting">Hello</span>
+        <button id="btn-switch-user" class="btn-ghost btn-sm">Switch</button>
+      </div>
+      <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+    </header>
+
+    <div class="hero">
+      <div class="hero-block">
+        <div class="hero-label">Today</div>
+        <div class="hero-num" id="hero-today">RM 0.00</div>
+      </div>
+      <div class="hero-block">
+        <div class="hero-label">This Month</div>
+        <div class="hero-num" id="hero-month">RM 0.00</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Quick Add</div>
+      <div id="quick-tiles" class="tiles"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Recent</div>
+      <div id="recent-list" class="list"></div>
+    </div>
+
+    <button id="btn-add" class="fab">+</button>
+  </section>
+
+  <!-- ADD EXPENSE -->
+  <section id="add-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-add-back" class="btn-ghost">Back</button>
+      <span class="add-title">New Expense</span>
+      <div style="width:48px"></div>
+    </header>
+
+    <div class="add-body">
+      <div class="field">
+        <label>Merchant / Payee</label>
+        <input type="text" id="add-merchant" placeholder="e.g. Shell, Mamak, Shopee" autocomplete="off">
+        <div id="merchant-suggest" class="suggest"></div>
+      </div>
+
+      <div class="field">
+        <label>Amount (MYR)</label>
+        <div class="amount-display" id="amount-display">0.00</div>
+        <div class="numpad">
+          <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+          <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+          <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+          <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <div id="cat-detected" class="cat-badge">Others</div>
+        <select id="add-category" class="hidden">
+          <option value="Food & Dining">Food & Dining</option>
+          <option value="Groceries">Groceries</option>
+          <option value="Transport">Transport</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Utilities">Utilities</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="Health & Wellness">Health & Wellness</option>
+          <option value="Home">Home</option>
+          <option value="Others">Others</option>
+        </select>
+      </div>
+
+      <button id="btn-save" class="btn-primary btn-lg">Save</button>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="settings-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-settings-back" class="btn-ghost">Back</button>
+      <span class="add-title">Settings</span>
+      <div style="width:48px"></div>
+    </header>
+    <div class="settings-body">
+      <div class="field">
+        <label>Change PIN</label>
+        <input type="password" id="set-pin" placeholder="New 4-digit PIN" maxlength="4" inputmode="numeric">
+        <button id="btn-save-pin" class="btn-primary btn-sm">Save PIN</button>
+      </div>
+      <div class="field">
+        <label>Data</label>
+        <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
+        <button id="btn-import" class="btn-ghost btn-sm">Import JSON</button>
+        <input type="file" id="import-file" accept=".json" class="hidden">
+      </div>
+      <div class="field danger-zone">
+        <button id="btn-clear" class="btn-danger btn-sm">Clear All Data</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="app.js?v=1.0"></script>
+</body>
+</html>
