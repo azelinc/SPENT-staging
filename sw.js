@@ -2,8 +2,8 @@ const CACHE = 'spent-v16';
 const FILES = [
   '/SPENT/',
   '/SPENT/index.html',
-  '/SPENT/sp6.css',
-  '/SPENT/sp6.js',
+  '/SPENT/sp.css',
+  '/SPENT/sp.js',
   '/SPENT/manifest.json',
   '/SPENT/icon-192.png',
   '/SPENT/icon-512.png'
