@@ -53,7 +53,7 @@ const QUICK_TILES = [
 let currentUser = null;   // { uid, name, pin }
 let amountStr = '';
 let pendingCount = 0;
-let authReady = false;
+
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -76,9 +76,17 @@ function showScreen(id){
   $(id).classList.add('active');
 }
 
+function waitForAuth(){
+  return new Promise(resolve => {
+    if(auth.currentUser){ resolve(auth.currentUser); return; }
+    const unsub = auth.onAuthStateChanged(user => {
+      if(user){ unsub(); resolve(user); }
+    });
+  });
+}
+
 /* ─── AUTH ─── */
 auth.onAuthStateChanged(user=>{
-  authReady = true;
   if(!user){
     auth.signInAnonymously().catch(console.error);
     return;
@@ -145,23 +153,23 @@ function doLogin(){
   const name=$('login-name').value.trim();
   const pin=$('login-pin').value.trim();
   if(!name||pin.length!==4||!/\d{4}/.test(pin)){ alert('Enter name and 4-digit PIN'); return; }
-  if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
 
-  const uid = auth.currentUser ? auth.currentUser.uid : null;
-  if(!uid){ alert('Auth not ready'); return; }
-
-  loadUserProfile(uid).then(profile=>{
-    if(profile){
-      if(profile.pin!==pin){ alert('Wrong PIN'); return; }
-      currentUser = { uid, name: profile.name || name, pin };
-    }else{
-      currentUser = { uid, name, pin };
-      saveUserProfile(uid, name, pin);
-    }
-    $('dash-greeting').textContent = 'Hello, '+currentUser.name;
-    showScreen('dash-screen');
-    refreshDash();
-    refreshReviewBadge();
+  waitForAuth().then(user=>{
+    if(!user){ alert('Auth failed'); return; }
+    const uid = user.uid;
+    loadUserProfile(uid).then(profile=>{
+      if(profile){
+        if(profile.pin!==pin){ alert('Wrong PIN'); return; }
+        currentUser = { uid, name: profile.name || name, pin };
+      }else{
+        currentUser = { uid, name, pin };
+        saveUserProfile(uid, name, pin);
+      }
+      $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+      showScreen('dash-screen');
+      refreshDash();
+      refreshReviewBadge();
+    });
   });
 }
 
