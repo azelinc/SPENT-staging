@@ -16,12 +16,13 @@
     <div class="login-box">
       <h1>SPENT</h1>
       <p class="sub">Expense tracker</p>
-      <input type="text" id="login-name" placeholder="Your name" autocomplete="off">
+      <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+      <input type="text" id="login-name" placeholder="Your name (display)" autocomplete="off">
       <div class="pin-row">
-        <input type="password" id="login-pin" placeholder="PIN (4 digits)" maxlength="4" inputmode="numeric" autocomplete="off">
+        <input type="password" id="login-password" placeholder="Password" autocomplete="off">
       </div>
       <button id="btn-login" class="btn-primary">Enter</button>
-      <p class="hint">New name auto-creates an account</p>
+      <p class="hint">New email auto-creates an account</p>
     </div>
   </section>
 
@@ -152,12 +153,6 @@
       <div class="field hidden" id="approved-panel">
         <label>Approved Partners</label>
         <div id="approved-links"></div>
-      </div>
-
-      <div class="field">
-        <label>Change PIN</label>
-        <input type="password" id="set-pin" placeholder="New 4-digit PIN" maxlength="4" inputmode="numeric">
-        <button id="btn-save-pin" class="btn-primary btn-sm">Save PIN</button>
       </div>
 
       <div class="field">

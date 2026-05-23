@@ -50,7 +50,7 @@ const QUICK_TILES = [
 ];
 
 /* ─── STATE ─── */
-let currentUser = null;   // { uid, name, pin }
+let currentUser = null;   // { uid, name, email }
 let amountStr = '';
 let pendingCount = 0;
 let authReady = false;
@@ -79,14 +79,21 @@ function showScreen(id){
 /* ─── AUTH ─── */
 auth.onAuthStateChanged(user=>{
   authReady = true;
-  if(!user){
-    auth.signInAnonymously().catch(console.error);
-    return;
-  }
-  // anonymous user now has stable uid
-  if(currentUser){
-    refreshDash();
-    refreshReviewBadge();
+  if(user){
+    if(!currentUser){
+      loadUserProfile(user.uid).then(profile=>{
+        currentUser = { uid:user.uid, name:profile?.name||user.displayName||'User', email:user.email };
+        $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+        showScreen('dash-screen');
+        refreshDash();
+        refreshReviewBadge();
+        attachListeners(user.uid);
+      });
+    }
+  }else{
+    currentUser = null;
+    detachListeners();
+    showScreen('login-screen');
   }
 });
 
@@ -99,8 +106,8 @@ function ownerLinksRef(ownerUid){ return db.ref('owners/'+ownerUid+'/links'); }
 function loadUserProfile(uid){
   return userRef(uid).once('value').then(s=>s.val()||null);
 }
-function saveUserProfile(uid, name, pin){
-  return userRef(uid).update({ name, pin, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+function saveUserProfile(uid, name){
+  return userRef(uid).update({ name, updatedAt: firebase.database.ServerValue.TIMESTAMP });
 }
 function saveExpense(uid, expense){
   const key = expRef(uid).push().key;
@@ -137,39 +144,78 @@ function loadOwnerLinks(ownerUid){
   return ownerLinksRef(ownerUid).once('value').then(s=>s.val()||{});
 }
 
+/* ─── REAL-TIME LISTENERS ─── */
+let _expCallback = null;
+let _linksCallback = null;
+
+function attachListeners(uid){
+  detachListeners();
+  _expCallback = snap=>{
+    if(!currentUser || currentUser.uid!==uid) return;
+    refreshDash();
+  };
+  expRef(uid).on('value', _expCallback);
+  _linksCallback = snap=>{
+    if(!currentUser || currentUser.uid!==uid) return;
+    refreshReviewBadge();
+    if($('settings-screen').classList.contains('active')) renderSettings();
+  };
+  ownerLinksRef(uid).on('value', _linksCallback);
+}
+function detachListeners(){
+  if(_expCallback && currentUser){ expRef(currentUser.uid).off('value', _expCallback); _expCallback=null; }
+  if(_linksCallback && currentUser){ ownerLinksRef(currentUser.uid).off('value', _linksCallback); _linksCallback=null; }
+}
+
 /* ─── LOGIN ─── */
 $('btn-login').addEventListener('click',doLogin);
-$('login-pin').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+$('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
 
 function doLogin(){
+  const email=$('login-email').value.trim();
+  const password=$('login-password').value;
   const name=$('login-name').value.trim();
-  const pin=$('login-pin').value.trim();
-  if(!name||pin.length!==4||!/\d{4}/.test(pin)){ alert('Enter name and 4-digit PIN'); return; }
+  if(!email||!password){ alert('Enter email and password'); return; }
   if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
 
-  const uid = auth.currentUser ? auth.currentUser.uid : null;
-  if(!uid){ alert('Auth not ready'); return; }
-
-  loadUserProfile(uid).then(profile=>{
-    if(profile){
-      if(profile.pin!==pin){ alert('Wrong PIN'); return; }
-      currentUser = { uid, name: profile.name || name, pin };
-    }else{
-      currentUser = { uid, name, pin };
-      saveUserProfile(uid, name, pin);
-    }
-    $('dash-greeting').textContent = 'Hello, '+currentUser.name;
-    showScreen('dash-screen');
-    refreshDash();
-    refreshReviewBadge();
-  });
+  auth.signInWithEmailAndPassword(email, password)
+    .then(cred=>{
+      currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email };
+      if(name) saveUserProfile(cred.user.uid, name);
+      $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+      showScreen('dash-screen');
+      refreshDash();
+      refreshReviewBadge();
+      attachListeners(cred.user.uid);
+    })
+    .catch(err=>{
+      if(err.code==='auth/user-not-found'){
+        if(!name){ alert('Enter your name to create a new account'); return; }
+        if(password.length<6){ alert('Password must be at least 6 characters'); return; }
+        return auth.createUserWithEmailAndPassword(email, password)
+          .then(cred=>{
+            currentUser = { uid:cred.user.uid, name, email:cred.user.email };
+            saveUserProfile(cred.user.uid, name);
+            $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+            showScreen('dash-screen');
+            refreshDash();
+            refreshReviewBadge();
+            attachListeners(cred.user.uid);
+          });
+      }
+      alert(err.message);
+    });
 }
 
 $('btn-switch-user').addEventListener('click',()=>{
-  currentUser=null;
-  $('login-name').value='';
-  $('login-pin').value='';
-  showScreen('login-screen');
+  auth.signOut().then(()=>{
+    currentUser=null;
+    detachListeners();
+    $('login-email').value='';
+    $('login-name').value='';
+    $('login-password').value='';
+    showScreen('login-screen');
+  });
 });
 
 /* ─── DASHBOARD ─── */
@@ -190,9 +236,8 @@ function refreshDash(){
       // If this user IS an owner (has approved links), merge partner data
       loadOwnerLinks(uid).then(links=>{
         const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
-        const isOwner = approved.length > 0;
 
-        if(isOwner && !ownerUid){
+        if(approved.length > 0){
           // Owner view: merge all approved partners' APPROVED expenses
           const fetches = approved.map(([puid])=> loadExpenses(puid).then(list=> list.filter(e=>e.status!=='rejected').map(e=>({...e,_user:links[puid].name,_uid:puid}))) );
           Promise.all(fetches).then(partnerLists=>{
@@ -200,7 +245,7 @@ function refreshDash(){
             renderDash(combined, today, monthPrefix);
           });
         }else{
-          // Partner view or solo: show own data only
+          // Solo or partner-only: show own data only
           renderDash(combined, today, monthPrefix);
         }
       });
@@ -538,6 +583,7 @@ $('btn-clear-owner').addEventListener('click',()=>{
   });
 });
 
+/*
 $('btn-save-pin').addEventListener('click',()=>{
   const p=$('set-pin').value.trim();
   if(!/^\d{4}$/.test(p)){ alert('PIN must be 4 digits'); return; }
@@ -547,6 +593,7 @@ $('btn-save-pin').addEventListener('click',()=>{
     $('set-pin').value='';
   });
 });
+*/
 
 $('btn-export').addEventListener('click',()=>{
   if(!currentUser) return;
@@ -565,8 +612,9 @@ $('btn-clear').addEventListener('click',()=>{
   if(confirm('DELETE ALL DATA for '+currentUser.name+'? Cannot undo.')){
     userRef(currentUser.uid).remove().then(()=>{
       currentUser = null;
+      $('login-email').value='';
       $('login-name').value='';
-      $('login-pin').value='';
+      $('login-password').value='';
       showScreen('login-screen');
     });
   }
