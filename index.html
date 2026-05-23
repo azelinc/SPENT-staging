@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.0.7 -->
+<!-- v2.0.8 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPENT">
-<link rel="stylesheet" href="sp3.css">
+<link rel="stylesheet" href="sp4.css">
 </head>
 <body>
 <div id="app">
@@ -95,18 +95,13 @@
       </div>
 
       <div class="field">
-        <label>Category</label>
-        <div id="cat-detected" class="cat-badge">Others</div>
-        <select id="add-category" class="hidden">
-          <option value="Food & Dining">Food & Dining</option>
-          <option value="Groceries">Groceries</option>
-          <option value="Transport">Transport</option>
-          <option value="Shopping">Shopping</option>
-          <option value="Utilities">Utilities</option>
-          <option value="Entertainment">Entertainment</option>
-          <option value="Health & Wellness">Health & Wellness</option>
-          <option value="Home">Home</option>
-          <option value="Others">Others</option>
+        <label>Payment Method</label>
+        <div id="pay-detected" class="cat-badge">Cash</div>
+        <select id="add-payment" class="hidden">
+          <option value="Cash">Cash</option>
+          <option value="Card">Card</option>
+          <option value="QR">QR</option>
+          <option value="Bank Transfer">Bank Transfer</option>
         </select>
       </div>
 
@@ -161,6 +156,15 @@
         <div id="approved-links"></div>
       </div>
 
+      <div class="field" id="payment-methods-field">
+        <label>Payment Methods</label>
+        <p class="field-hint">Comma-separated list for your payment options.</p>
+        <input type="text" id="set-payment-methods" placeholder="e.g. Cash, Card, QR, Bank Transfer">
+        <div class="btn-row">
+          <button id="btn-save-payments" class="btn-primary btn-sm">Save</button>
+        </div>
+      </div>
+
       <div class="field">
         <label>Data</label>
         <button id="btn-export" class="btn-ghost btn-sm">Export JSON</button>
@@ -185,6 +189,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<script src="sp3.js"></script>
+<script src="sp4.js"></script>
 </body>
 </html>
