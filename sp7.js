@@ -430,8 +430,7 @@ function openAdd(preMerchant,preCategory){
   $('btn-delete').classList.add('hidden');
   loadPaymentMethods(currentUser.uid).then(methods=>{
     const payment = lastPayment || methods[0];
-    $('pay-detected').textContent = payment;
-    buildPaySelect(methods, payment);
+    buildPayChips(methods, payment);
   });
   buildSuggest();
   showScreen('add-screen');
@@ -448,8 +447,7 @@ function openEdit(expense){
   $('btn-delete').classList.remove('hidden');
   loadPaymentMethods(expense._uid).then(methods=>{
     const payment = expense.payment || methods[0];
-    $('pay-detected').textContent = payment;
-    buildPaySelect(methods, payment);
+    buildPayChips(methods, payment);
   });
   buildSuggest();
   showScreen('add-screen');
@@ -496,23 +494,32 @@ function buildSuggest(){
 }
 window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); $('cat-detected').textContent=detectCategory(m); $('add-category').value=detectCategory(m); };
 
-// payment method toggle + select population
-function buildPaySelect(methods, selected){
-  const sel = $('add-payment');
-  sel.innerHTML = methods.map(m=>`\u003coption value="${esc(m)}"\u003e${m}\u003c/option\u003e`).join('');
-  if(selected && methods.includes(selected)) sel.value = selected;
-  else sel.value = methods[0];
+// payment method chips
+let currentPayMethods = DEFAULT_PAYMENT_METHODS.slice();
+function buildPayChips(methods, selected){
+  currentPayMethods = methods;
+  const wrap = $('pay-chips');
+  wrap.innerHTML = methods.map(m => {
+    const cls = m === selected ? 'tile on' : 'tile';
+    return `\u003cdiv class="${cls}" data-m="${esc(m)}"\u003e${esc(m)}\u003c/div\u003e`;
+  }).join('');
+  wrap.querySelectorAll('.tile').forEach(el => {
+    el.addEventListener('click', () => {
+      wrap.querySelectorAll('.tile').forEach(t => t.classList.remove('on'));
+      el.classList.add('on');
+      $('add-payment').value = el.dataset.m;
+    });
+  });
 }
-$('pay-detected').addEventListener('click',()=>{
-  $('pay-detected').classList.toggle('hidden');
-  $('add-payment').classList.toggle('hidden');
-  if(!$('add-payment').classList.contains('hidden')) $('add-payment').focus();
-});
-$('add-payment').addEventListener('change',()=>{
-  $('pay-detected').textContent = $('add-payment').value;
-  $('pay-detected').classList.remove('hidden');
-  $('add-payment').classList.add('hidden');
-});
+function setPayChip(val){
+  const wrap = $('pay-chips');
+  const match = wrap.querySelector(`[data-m="${esc(val)}"]`);
+  if(match){
+    wrap.querySelectorAll('.tile').forEach(t => t.classList.remove('on'));
+    match.classList.add('on');
+    $('add-payment').value = val;
+  }
+}
 
 // category override (kept for hidden field, merchant still auto-detects)
 $('cat-detected').addEventListener('click',()=>{

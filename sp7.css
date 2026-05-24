@@ -163,6 +163,7 @@ html, body {
   transition: border-color 0.15s;
 }
 .tile:hover, .tile:active { border-color: var(--accent); }
+.tile.on { border-color: var(--accent); background: rgba(59,130,246,0.15); }
 
 /* LIST */
 .list { display: flex; flex-direction: column; gap: 8px; }
