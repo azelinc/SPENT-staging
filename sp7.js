@@ -344,7 +344,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   const freq = {};
   combined.forEach(e=>{ freq[e.merchant]=(freq[e.merchant]||0)+1; });
   const hist = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([m])=>m);
-  const toShow = [...new Set([...hist, ...QUICK_TILES.map(t=>t.merchant)])].slice(0,12);
+  const toShow = [...new Set([...hist, ...QUICK_TILES.map(t=>t.merchant)])].slice(0,6);
   toShow.forEach(m=>{
     const el = document.createElement('div');
     el.className = 'tile';
