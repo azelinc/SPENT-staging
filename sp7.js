@@ -333,10 +333,19 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
 
-  // Update filter labels on hero blocks
-  const filterLabel = summaryFilter==='both' ? 'Both' : summaryFilter==='me' ? 'Me' : 'Ibu';
-  $('hero-filter').textContent = filterLabel;
-  $('hero-filter-month').textContent = filterLabel;
+  // Update filter labels on hero blocks (show only if owner has partners)
+  if(hasPartners){
+    const filterLabel = summaryFilter==='both' ? 'Both' : summaryFilter==='me' ? 'Me' : 'Ibu';
+    $('hero-filter').textContent = filterLabel;
+    $('hero-filter-month').textContent = filterLabel;
+    $('hero-today-block').style.cursor = 'pointer';
+    $('hero-month-block').style.cursor = 'pointer';
+  }else{
+    $('hero-filter').textContent = '';
+    $('hero-filter-month').textContent = '';
+    $('hero-today-block').style.cursor = 'default';
+    $('hero-month-block').style.cursor = 'default';
+  }
 
   // Quick tiles (all data)
   const tiles = $('quick-tiles');
@@ -829,13 +838,17 @@ $('hero-month-block').addEventListener('click',()=>cycleHeroFilter());
 
 function cycleHeroFilter(){
   if(!currentUser) return;
-  loadOwnerLinks(currentUser.uid).then(links=>{
-    const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
-    if(approved.length===0) return; // no subs to filter
-    const idx = FILTER_ORDER.indexOf(summaryFilter);
-    summaryFilter = FILTER_ORDER[(idx+1) % FILTER_ORDER.length];
-    saveSettings(currentUser.uid, { partnerFilter: summaryFilter }).then(()=>{
-      refreshDash();
+  // Only owners with approved partners can toggle; subs cannot
+  loadSettings(currentUser.uid).then(s=>{
+    if(s.ownerUid) return; // Sub account: no filter
+    loadOwnerLinks(currentUser.uid).then(links=>{
+      const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
+      if(approved.length===0) return; // no subs to filter
+      const idx = FILTER_ORDER.indexOf(summaryFilter);
+      summaryFilter = FILTER_ORDER[(idx+1) % FILTER_ORDER.length];
+      saveSettings(currentUser.uid, { partnerFilter: summaryFilter }).then(()=>{
+        refreshDash();
+      });
     });
   });
 }
