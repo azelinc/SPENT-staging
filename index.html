@@ -40,6 +40,7 @@
       </div>
       <div class="header-actions">
         <a href="https://azelinc.github.io/Done/" class="btn-ghost btn-sm" style="text-decoration:none" target="_blank">Done</a>
+        <button id="btn-bills" class="btn-ghost btn-sm">Bills</button>
         <button id="btn-review" class="btn-ghost btn-sm hidden">Review <span id="pending-badge" class="badge hidden">0</span></button>
         <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
       </div>
@@ -186,6 +187,63 @@
       </div>
     </div>
   </section>
+
+  <!-- BILLS -->
+  <section id="bills-screen" class="screen">
+    <header class="add-header">
+      <button id="btn-bills-back" class="btn-ghost">Back</button>
+      <span class="add-title">Bill Reminders</span>
+      <button id="btn-bill-add" class="btn-ghost btn-sm">+ Add</button>
+    </header>
+    <div class="bills-body">
+      <div id="bills-list" class="list"></div>
+    </div>
+  </section>
+
+  <!-- BILL FORM MODAL -->
+  <div id="bill-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="bill-modal-title">Add Bill</span>
+        <button id="btn-bill-modal-close" class="btn-ghost btn-sm">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Bill Name</label>
+          <input type="text" id="bill-name" placeholder="e.g. Maybank Visa, Unifi, TNB" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Amount (RM)</label>
+          <div class="amount-display" id="bill-amount-display">0.00</div>
+          <div class="numpad">
+            <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+            <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+            <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+            <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Due Day of Month (1-31)</label>
+          <input type="number" id="bill-due-day" min="1" max="31" value="1" placeholder="e.g. 26">
+        </div>
+        <div class="field">
+          <label>Remind Me</label>
+          <div id="reminder-days-chips" class="tiles">
+            <div class="tile" data-days="3">3 days before</div>
+            <div class="tile" data-days="1">1 day before</div>
+            <div class="tile" data-days="0">On due day</div>
+          </div>
+        </div>
+        <div class="field" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="bill-active" checked>
+          <label for="bill-active" style="margin:0">Active</label>
+        </div>
+        <div id="bill-modal-error" style="color:var(--danger);font-size:0.8rem;margin:8px 0;display:none"></div>
+        <button id="btn-bill-save" class="btn-primary">Save Bill</button>
+        <button id="btn-bill-delete" class="btn-danger btn-lg hidden">Delete Bill</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 

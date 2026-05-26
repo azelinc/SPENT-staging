@@ -408,3 +408,109 @@ html, body {
   width: 100%;
   margin-top: 12px;
 }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.modal-body {
+  padding: 16px 20px 24px;
+}
+
+/* BILLS */
+.bills-body {
+  padding: 16px 20px 80px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.bill-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.bill-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.bill-card-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+.bill-card-amount {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent-2);
+}
+.bill-card-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.bill-card-reminders {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.bill-reminder-chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.bill-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.bill-card-actions button {
+  font-size: 0.75rem;
+  padding: 4px 12px;
+}
+.bill-card.inactive {
+  opacity: 0.45;
+}
+
+/* Reminder days chip toggle */
+#reminder-days-chips .tile.on {
+  border-color: var(--accent);
+  background: rgba(59,130,246,0.15);
+  color: var(--accent);
+}
+
+/* Bills nav dot */
+#bill-nav-dot {
+  display: none;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}

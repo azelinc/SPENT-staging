@@ -832,24 +832,270 @@ $('btn-clear').addEventListener('click',()=>{
 });
 
 /* ─── HERO FILTER CLICK ─── */
+/* ─── HERO FILTER CLICK ─── */
 const FILTER_ORDER = ['both','me','ibu'];
 $('hero-today-block').addEventListener('click',()=>cycleHeroFilter());
 $('hero-month-block').addEventListener('click',()=>cycleHeroFilter());
 
 function cycleHeroFilter(){
   if(!currentUser) return;
-  // Only owners with approved partners can toggle; subs cannot
   loadSettings(currentUser.uid).then(s=>{
-    if(s.ownerUid) return; // Sub account: no filter
+    if(s.ownerUid) return;
     loadOwnerLinks(currentUser.uid).then(links=>{
       const approved = Object.entries(links).filter(([id,l])=>l.status==='approved');
-      if(approved.length===0) return; // no subs to filter
+      if(approved.length===0) return;
       const idx = FILTER_ORDER.indexOf(summaryFilter);
       summaryFilter = FILTER_ORDER[(idx+1) % FILTER_ORDER.length];
       saveSettings(currentUser.uid, { partnerFilter: summaryFilter }).then(()=>{
         refreshDash();
       });
     });
+  });
+}
+
+/* ─── BILLS ─── */
+function billsRef(uid){ return db.ref('bills/'+uid); }
+
+function loadBills(uid){
+  return billsRef(uid).once('value').then(s=>{
+    const v = s.val() || {};
+    return Object.entries(v).map(([id, o])=>({id, ...o}));
+  });
+}
+
+function saveBill(uid, bill){
+  const key = billsRef(uid).push().key;
+  return billsRef(uid).child(key).set(bill).then(()=>key);
+}
+
+function updateBill(uid, billId, data){
+  return billsRef(uid).child(billId).update(data);
+}
+
+function deleteBill(uid, billId){
+  return billsRef(uid).child(billId).remove();
+}
+
+/* ─── BILLS NAV ─── */
+$('btn-bills').addEventListener('click',()=>{
+  showScreen('bills-screen');
+  renderBills();
+});
+$('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
+
+/* ─── BILLS RENDER ─── */
+function renderBills(){
+  const list = $('bills-list');
+  list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
+  if(!currentUser) return;
+
+  loadBills(currentUser.uid).then(bills=>{
+    if(bills.length === 0){
+      list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">No bills yet. Tap + Add to create one.</span></div></div>';
+      return;
+    }
+    bills.sort((a,b)=>{
+      const na = a.active===false ? 1 : 0;
+      const nb = b.active===false ? 1 : 0;
+      if(na !== nb) return na - nb;
+      return a.dueDay - b.dueDay;
+    });
+    list.innerHTML = '';
+    bills.forEach(b=>{
+      const reminderLabels = (b.reminderDays||[3,1,0]).sort((a,b)=>b-a).map(d=>{
+        if(d===0) return 'On due day';
+        return d+' day'+(d>1?'s':'')+' before';
+      });
+      const nextDue = computeNextDueDate(b.dueDay);
+      const daysUntil = Math.ceil((new Date(nextDue) - now()) / 86400000);
+      let dueLabel;
+      if(daysUntil === 0) dueLabel = 'Due today';
+      else if(daysUntil < 0) dueLabel = Math.abs(daysUntil)+' day'+(Math.abs(daysUntil)>1?'s':'')+' overdue';
+      else dueLabel = 'Due in '+daysUntil+' day'+(daysUntil>1?'s':'');
+
+      const card = document.createElement('div');
+      card.className = 'bill-card' + (b.active===false ? ' inactive' : '');
+      card.innerHTML = `
+        <div class="bill-card-top">
+          <div>
+            <div class="bill-card-name">${esc(b.name)}</div>
+            <div class="bill-card-meta">Day ${b.dueDay} · ${dueLabel}</div>
+          </div>
+          <div class="bill-card-amount">${fmtMoney(b.amount||0)}</div>
+        </div>
+        <div class="bill-card-reminders">
+          ${reminderLabels.map(l=>`<span class="bill-reminder-chip">${l}</span>`).join('')}
+        </div>
+        <div class="bill-card-actions">
+          <button class="btn-ghost btn-sm edit-bill" data-id="${esc(b.id)}">Edit</button>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    // Wire edit buttons
+    list.querySelectorAll('.edit-bill').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const bid = btn.dataset.id;
+        loadBills(currentUser.uid).then(bills=>{
+          const bill = bills.find(b=>b.id===bid);
+          if(bill) openBillModal('edit', bill);
+        });
+      });
+    });
+  });
+}
+
+/* ─── NEXT DUE DATE CALC ─── */
+function computeNextDueDate(dueDay){
+  const today = now();
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-indexed
+
+  // Days in given month
+  function daysInMonth(yr, mn){
+    return new Date(yr, mn+1, 0).getDate();
+  }
+
+  const day = Math.min(dueDay, daysInMonth(y, m));
+  let candidate = new Date(y, m, day);
+
+  if(candidate < today){
+    // Try next month
+    const nm = m + 1;
+    const ny = y + Math.floor(nm / 12);
+    const nmonth = nm % 12;
+    const nday = Math.min(dueDay, daysInMonth(ny, nmonth));
+    candidate = new Date(ny, nmonth, nday);
+  }
+
+  return fmtDate(candidate);
+}
+
+/* ─── BILL MODAL ─── */
+let editingBill = null;
+let billAmountStr = '';
+
+$('btn-bill-add').addEventListener('click',()=>openBillModal('add'));
+$('btn-bill-modal-close').addEventListener('click',closeBillModal);
+
+document.querySelectorAll('#bill-modal .numpad button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const k=btn.dataset.k;
+    if(k==='C'){ billAmountStr=''; }
+    else if(k==='.'&&billAmountStr.includes('.')){}
+    else if(k==='0'&&billAmountStr===''){}
+    else {
+      const next=billAmountStr+k;
+      const parts=next.split('.');
+      if(parts[1]&&parts[1].length>2){}
+      else if(next.replace('.','').length>8){}
+      else { billAmountStr=next; }
+    }
+    $('bill-amount-display').textContent=billAmountStr?parseFloat(billAmountStr).toFixed(2):'0.00';
+  });
+});
+
+// Reminder days chips toggle
+$('reminder-days-chips').addEventListener('click',(e)=>{
+  const chip = e.target.closest('.tile');
+  if(!chip || !chip.dataset.days) return;
+  chip.classList.toggle('on');
+});
+
+$('btn-bill-save').addEventListener('click',saveBillHandler);
+$('btn-bill-delete').addEventListener('click',deleteBillHandler);
+
+function openBillModal(mode, bill){
+  editingBill = bill || null;
+  $('bill-modal-error').style.display = 'none';
+
+  if(mode === 'add'){
+    $('bill-modal-title').textContent = 'Add Bill';
+    $('bill-name').value = '';
+    billAmountStr = '';
+    $('bill-amount-display').textContent = '0.00';
+    $('bill-due-day').value = '1';
+    $('bill-active').checked = true;
+    $('btn-bill-save').textContent = 'Save Bill';
+    $('btn-bill-delete').classList.add('hidden');
+    // Set default reminder days: all 3 selected
+    $('reminder-days-chips').querySelectorAll('.tile').forEach(t=>t.classList.add('on'));
+  }else{
+    $('bill-modal-title').textContent = 'Edit Bill';
+    $('bill-name').value = bill.name;
+    billAmountStr = String(bill.amount || 0);
+    $('bill-amount-display').textContent = (bill.amount||0).toFixed(2);
+    $('bill-due-day').value = bill.dueDay;
+    $('bill-active').checked = bill.active !== false;
+    $('btn-bill-save').textContent = 'Update Bill';
+    $('btn-bill-delete').classList.remove('hidden');
+
+    // Set reminder days chips
+    const days = bill.reminderDays || [3,1,0];
+    $('reminder-days-chips').querySelectorAll('.tile').forEach(t=>{
+      if(days.includes(parseInt(t.dataset.days))){
+        t.classList.add('on');
+      }else{
+        t.classList.remove('on');
+      }
+    });
+  }
+
+  $('bill-modal').classList.remove('hidden');
+  setTimeout(()=>$('bill-name').focus(), 100);
+}
+
+function closeBillModal(){
+  $('bill-modal').classList.add('hidden');
+  editingBill = null;
+}
+
+function saveBillHandler(){
+  const name = $('bill-name').value.trim();
+  const amount = parseFloat(billAmountStr) || 0;
+  const dueDay = parseInt($('bill-due-day').value) || 1;
+  const active = $('bill-active').checked;
+  const errEl = $('bill-modal-error');
+
+  if(!name){ errEl.textContent = 'Enter bill name'; errEl.style.display='block'; return; }
+  if(amount <= 0){ errEl.textContent = 'Enter amount'; errEl.style.display='block'; return; }
+  if(dueDay < 1 || dueDay > 31){ errEl.textContent = 'Due day must be 1-31'; errEl.style.display='block'; return; }
+
+  const reminderDays = [];
+  $('reminder-days-chips').querySelectorAll('.tile.on').forEach(t=>{
+    reminderDays.push(parseInt(t.dataset.days));
+  });
+  reminderDays.sort((a,b)=>b-a);
+
+  if(reminderDays.length === 0){
+    errEl.textContent = 'Select at least one reminder'; errEl.style.display='block'; return;
+  }
+
+  errEl.style.display = 'none';
+
+  const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+
+  if(editingBill){
+    updateBill(currentUser.uid, editingBill.id, data).then(()=>{
+      closeBillModal();
+      renderBills();
+    });
+  }else{
+    data.createdAt = firebase.database.ServerValue.TIMESTAMP;
+    saveBill(currentUser.uid, data).then(()=>{
+      closeBillModal();
+      renderBills();
+    });
+  }
+}
+
+function deleteBillHandler(){
+  if(!editingBill){ return; }
+  if(!confirm('Delete this bill reminder? Cannot undo.')) return;
+  deleteBill(currentUser.uid, editingBill.id).then(()=>{
+    closeBillModal();
+    renderBills();
   });
 }
 
