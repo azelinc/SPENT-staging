@@ -887,6 +887,8 @@ $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
 /* ─── BILLS RENDER ─── */
 function computeBacklog(bill, monthKey){
   const pm = bill.paidMonths || {};
+  const paidKeys = Object.keys(pm);
+  if(paidKeys.length === 0) return 0; // never paid → no backlog
   const [year, month] = monthKey.split('-').map(Number);
   let backlog = 0;
   for(let y = year, m = month; ;){
@@ -1119,7 +1121,7 @@ function saveBillHandler(){
   const errEl = $('bill-modal-error');
 
   if(!name){ errEl.textContent = 'Enter bill name'; errEl.style.display='block'; return; }
-  if(amount <= 0){ errEl.textContent = 'Enter amount'; errEl.style.display='block'; return; }
+  // Amount is optional for bill tracking
   if(dueDay < 1 || dueDay > 31){ errEl.textContent = 'Due day must be 1-31'; errEl.style.display='block'; return; }
 
   const reminderDays = [];
