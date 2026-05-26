@@ -447,70 +447,17 @@ html, body {
   max-width: 480px;
   margin: 0 auto;
 }
-.bill-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 10px;
+.bill-row {
+  cursor: pointer;
 }
-.bill-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-.bill-card-name {
-  font-weight: 600;
-  font-size: 1rem;
-}
-.bill-card-amount {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--accent-2);
-}
-.bill-card-meta {
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin-top: 4px;
-}
-.bill-card-reminders {
-  display: flex;
-  gap: 4px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-.bill-reminder-chip {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-.bill-card-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-.bill-card-actions button {
-  font-size: 0.75rem;
-  padding: 4px 12px;
-}
-.bill-card.inactive {
-  opacity: 0.45;
-}
+.bill-row:active { background: var(--surface-2); }
+.bill-row.bill-inactive { opacity: 0.35; }
+.bill-due-overdue { color: var(--danger); font-weight: 600; }
+.bill-due-soon { color: #f59e0b; font-weight: 600; }
 
 /* Reminder days chip toggle */
 #reminder-days-chips .tile.on {
   border-color: var(--accent);
   background: rgba(59,130,246,0.15);
   color: var(--accent);
-}
-
-/* Bills nav dot */
-#bill-nav-dot {
-  display: none;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
 }

@@ -894,54 +894,44 @@ function renderBills(){
       list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">No bills yet. Tap + Add to create one.</span></div></div>';
       return;
     }
+    // Sort: upcoming soonest first, then by day, inactive last
     bills.sort((a,b)=>{
       const na = a.active===false ? 1 : 0;
       const nb = b.active===false ? 1 : 0;
       if(na !== nb) return na - nb;
-      return a.dueDay - b.dueDay;
+      const da = Math.ceil((new Date(computeNextDueDate(a.dueDay)) - now()) / 86400000);
+      const db = Math.ceil((new Date(computeNextDueDate(b.dueDay)) - now()) / 86400000);
+      return da - db;
     });
     list.innerHTML = '';
     bills.forEach(b=>{
-      const reminderLabels = (b.reminderDays||[3,1,0]).sort((a,b)=>b-a).map(d=>{
-        if(d===0) return 'On due day';
-        return d+' day'+(d>1?'s':'')+' before';
-      });
       const nextDue = computeNextDueDate(b.dueDay);
       const daysUntil = Math.ceil((new Date(nextDue) - now()) / 86400000);
-      let dueLabel;
-      if(daysUntil === 0) dueLabel = 'Due today';
-      else if(daysUntil < 0) dueLabel = Math.abs(daysUntil)+' day'+(Math.abs(daysUntil)>1?'s':'')+' overdue';
-      else dueLabel = 'Due in '+daysUntil+' day'+(daysUntil>1?'s':'');
+      let dueLabel, dueClass;
+      if(daysUntil === 0){ dueLabel = 'today'; dueClass = 'bill-due-overdue'; }
+      else if(daysUntil < 0){ dueLabel = Math.abs(daysUntil)+'d ago'; dueClass = 'bill-due-overdue'; }
+      else if(daysUntil <= 3){ dueLabel = 'in '+daysUntil+'d'; dueClass = 'bill-due-soon'; }
+      else { dueLabel = 'in '+daysUntil+'d'; dueClass = ''; }
 
-      const card = document.createElement('div');
-      card.className = 'bill-card' + (b.active===false ? ' inactive' : '');
-      card.innerHTML = `
-        <div class="bill-card-top">
-          <div>
-            <div class="bill-card-name">${esc(b.name)}</div>
-            <div class="bill-card-meta">Day ${b.dueDay} · ${dueLabel}</div>
-          </div>
-          <div class="bill-card-amount">${fmtMoney(b.amount||0)}</div>
+      const isInactive = b.active === false;
+
+      const row = document.createElement('div');
+      row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '');
+      row.dataset.id = b.id;
+      row.innerHTML = `
+        <div class="item-left">
+          <span class="item-name">${esc(b.name)}</span>
+          <span class="item-meta">Day ${b.dueDay} · <span class="${dueClass}">${dueLabel}</span></span>
         </div>
-        <div class="bill-card-reminders">
-          ${reminderLabels.map(l=>`<span class="bill-reminder-chip">${l}</span>`).join('')}
-        </div>
-        <div class="bill-card-actions">
-          <button class="btn-ghost btn-sm edit-bill" data-id="${esc(b.id)}">Edit</button>
-        </div>
+        <span class="item-amount">${fmtMoney(b.amount||0)}</span>
       `;
-      list.appendChild(card);
-    });
-
-    // Wire edit buttons
-    list.querySelectorAll('.edit-bill').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const bid = btn.dataset.id;
+      row.addEventListener('click', ()=>{
         loadBills(currentUser.uid).then(bills=>{
-          const bill = bills.find(b=>b.id===bid);
+          const bill = bills.find(x=>x.id===b.id);
           if(bill) openBillModal('edit', bill);
         });
       });
+      list.appendChild(row);
     });
   });
 }
