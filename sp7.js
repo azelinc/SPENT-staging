@@ -885,6 +885,29 @@ $('btn-bills').addEventListener('click',()=>{
 $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
 
 /* ─── BILLS RENDER ─── */
+function computeBacklog(bill, monthKey){
+  const pm = bill.paidMonths || {};
+  const [year, month] = monthKey.split('-').map(Number);
+  let backlog = 0;
+  for(let y = year, m = month; ;){
+    const key = `${y}-${String(m).padStart(2,'0')}`;
+    if(pm[key]) break;
+    if(key !== monthKey) backlog++;
+    m--;
+    if(m === 0){ m = 12; y--; }
+    if(backlog > 24) break;
+  }
+  return backlog;
+}
+
+function togglePaid(uid, billId, monthKey, isPaid){
+  if(isPaid){
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => renderBills());
+  }else{
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => renderBills());
+  }
+}
+
 function renderBills(){
   const list = $('bills-list');
   list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
@@ -893,21 +916,50 @@ function renderBills(){
   loadBills(currentUser.uid).then(bills=>{
     if(bills.length === 0){
       list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">No bills yet. Tap + Add to create one.</span></div></div>';
+      $('bills-summary').classList.add('hidden');
       return;
     }
-    // Sort: upcoming soonest first, then by day, inactive last
+
+    const nowDate = now();
+    const monthKey = fmtDate(nowDate).slice(0,7); // "2026-05"
+
+    // Compute summary
+    let paidCount = 0, backlogCount = 0;
+    bills.forEach(b => {
+      const pm = b.paidMonths || {};
+      if(pm[monthKey]) paidCount++;
+      backlogCount += computeBacklog(b, monthKey);
+    });
+
+    // Summary strip
+    const sumEl = $('bills-summary');
+    if(paidCount > 0 || backlogCount > 0){
+      sumEl.classList.remove('hidden');
+      sumEl.innerHTML = `<span>☑ ${paidCount}/${bills.length} paid</span>` + (backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : '');
+    } else {
+      sumEl.classList.add('hidden');
+    }
+
+    // Sort: unpaid this month first, then upcoming soonest, inactive last
     bills.sort((a,b)=>{
+      const pa = !!(a.paidMonths||{})[monthKey];
+      const pb = !!(b.paidMonths||{})[monthKey];
+      if(pa !== pb) return pa ? 1 : -1; // unpaid first
       const na = a.active===false ? 1 : 0;
       const nb = b.active===false ? 1 : 0;
       if(na !== nb) return na - nb;
-      const da = Math.ceil((new Date(computeNextDueDate(a.dueDay)) - now()) / 86400000);
-      const db = Math.ceil((new Date(computeNextDueDate(b.dueDay)) - now()) / 86400000);
+      const da = Math.ceil((new Date(computeNextDueDate(a.dueDay)) - nowDate) / 86400000);
+      const db = Math.ceil((new Date(computeNextDueDate(b.dueDay)) - nowDate) / 86400000);
       return da - db;
     });
+
     list.innerHTML = '';
     bills.forEach(b=>{
+      const pm = b.paidMonths || {};
+      const isPaid = !!pm[monthKey];
+      const backlog = computeBacklog(b, monthKey);
       const nextDue = computeNextDueDate(b.dueDay);
-      const daysUntil = Math.ceil((new Date(nextDue) - now()) / 86400000);
+      const daysUntil = Math.ceil((new Date(nextDue) - nowDate) / 86400000);
       let dueLabel, dueClass;
       if(daysUntil === 0){ dueLabel = 'today'; dueClass = 'bill-due-overdue'; }
       else if(daysUntil < 0){ dueLabel = Math.abs(daysUntil)+'d ago'; dueClass = 'bill-due-overdue'; }
@@ -915,23 +967,40 @@ function renderBills(){
       else { dueLabel = 'in '+daysUntil+'d'; dueClass = ''; }
 
       const isInactive = b.active === false;
+      const checkChar = isPaid ? '☑' : '☐';
+
+      let metaParts = [`Day ${b.dueDay}`, `<span class="${dueClass}">${dueLabel}</span>`];
+      if(backlog > 0) metaParts.push(`<span class="bill-due-overdue">+${backlog} unpaid</span>`);
 
       const row = document.createElement('div');
-      row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '');
+      row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '') + (isPaid ? ' bill-paid' : '');
       row.dataset.id = b.id;
       row.innerHTML = `
-        <div class="item-left">
-          <span class="item-name">${esc(b.name)}</span>
-          <span class="item-meta">Day ${b.dueDay} · <span class="${dueClass}">${dueLabel}</span></span>
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+          <span class="bill-check">${checkChar}</span>
+          <div style="flex:1;min-width:0">
+            <span class="item-name">${esc(b.name)}</span>
+            <span class="item-meta">${metaParts.join(' · ')}</span>
+          </div>
+          <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
         </div>
-        <span class="item-amount">${fmtMoney(b.amount||0)}</span>
       `;
-      row.addEventListener('click', ()=>{
-        loadBills(currentUser.uid).then(bills=>{
-          const bill = bills.find(x=>x.id===b.id);
+
+      // Tap anywhere on the row → toggle paid (except edit btn)
+      row.addEventListener('click', e => {
+        if(e.target.classList.contains('bill-edit-btn')) return;
+        togglePaid(currentUser.uid, b.id, monthKey, isPaid);
+      });
+
+      // Edit button
+      row.querySelector('.bill-edit-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        loadBills(currentUser.uid).then(all=>{
+          const bill = all.find(x=>x.id===b.id);
           if(bill) openBillModal('edit', bill);
         });
       });
+
       list.appendChild(row);
     });
   });
