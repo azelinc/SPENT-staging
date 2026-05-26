@@ -112,19 +112,12 @@ html, body {
 }
 .header-row-top {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.header-row-bottom {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 8px;
+  margin-bottom: 6px;
 }
-.header-row-bottom .btn-ghost {
-  flex: 1;
-  text-align: center;
+.header-row-top #dash-greeting {
+  margin-right: auto;
 }
 .header-ver {
   font-size: 10px;
@@ -132,9 +125,17 @@ html, body {
   opacity: 0.5;
   white-space: nowrap;
   padding: 0 4px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 #dash-greeting { font-weight: 600; }
-.header-actions-top { display: flex; gap: 8px; align-items: center; }
+
+.header-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
 
 .hero {
   display: flex;
