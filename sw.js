@@ -1,12 +1,12 @@
-const CACHE = 'spent-v22';
+const CACHE = 'spent-v23';
 const FILES = [
-  '/SPENT/',
-  '/SPENT/index.html',
-  '/SPENT/sp7.css',
-  '/SPENT/sp7.js',
-  '/SPENT/manifest.json',
-  '/SPENT/icon-192.png',
-  '/SPENT/icon-512.png'
+  '/SPENT-staging/',
+  '/SPENT-staging/index.html',
+  '/SPENT-staging/sp7.css',
+  '/SPENT-staging/sp7.js',
+  '/SPENT-staging/manifest.json',
+  '/SPENT-staging/icon-192.png',
+  '/SPENT-staging/icon-512.png'
 ];
 
 self.addEventListener('install',e=>{
