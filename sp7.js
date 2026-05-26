@@ -885,6 +885,11 @@ $('btn-bills').addEventListener('click',()=>{
 $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
 
 /* ─── BILLS RENDER ─── */
+// Which month does this bill's next payment belong to?
+function billMonthKey(bill){
+  return computeNextDueDate(bill.dueDay).slice(0,7);
+}
+
 function computeBacklog(bill, monthKey){
   // Manual override takes precedence
   if(bill.backlogOverride >= 0) return bill.backlogOverride;
@@ -925,14 +930,14 @@ function renderBills(){
     }
 
     const nowDate = now();
-    const monthKey = fmtDate(nowDate).slice(0,7); // "2026-05"
 
-    // Compute summary
+    // Compute summary — each bill uses its own next-due-month
     let paidCount = 0, backlogCount = 0;
     bills.forEach(b => {
+      const mk = billMonthKey(b);
       const pm = b.paidMonths || {};
-      if(pm[monthKey]) paidCount++;
-      backlogCount += computeBacklog(b, monthKey);
+      if(pm[mk]) paidCount++;
+      backlogCount += computeBacklog(b, mk);
     });
 
     // Summary strip
@@ -944,10 +949,10 @@ function renderBills(){
       sumEl.classList.add('hidden');
     }
 
-    // Sort: unpaid this month first, then upcoming soonest, inactive last
+    // Sort: unpaid first (by each bill's next-due-month), then upcoming soonest, inactive last
     bills.sort((a,b)=>{
-      const pa = !!(a.paidMonths||{})[monthKey];
-      const pb = !!(b.paidMonths||{})[monthKey];
+      const pa = !!(a.paidMonths||{})[billMonthKey(a)];
+      const pb = !!(b.paidMonths||{})[billMonthKey(b)];
       if(pa !== pb) return pa ? 1 : -1; // unpaid first
       const na = a.active===false ? 1 : 0;
       const nb = b.active===false ? 1 : 0;
@@ -959,9 +964,10 @@ function renderBills(){
 
     list.innerHTML = '';
     bills.forEach(b=>{
+      const mk = billMonthKey(b);
       const pm = b.paidMonths || {};
-      const isPaid = !!pm[monthKey];
-      const backlog = computeBacklog(b, monthKey);
+      const isPaid = !!pm[mk];
+      const backlog = computeBacklog(b, mk);
       const nextDue = computeNextDueDate(b.dueDay);
       const daysUntil = Math.ceil((new Date(nextDue) - nowDate) / 86400000);
       let dueLabel, dueClass;
@@ -993,7 +999,7 @@ function renderBills(){
       // Tap anywhere on the row → toggle paid (except edit btn)
       row.addEventListener('click', e => {
         if(e.target.classList.contains('bill-edit-btn')) return;
-        togglePaid(currentUser.uid, b.id, monthKey, isPaid);
+        togglePaid(currentUser.uid, b.id, mk, isPaid);
       });
 
       // Edit button
