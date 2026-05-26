@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.0-firebase';
+const APP_VER = 'v2.1-bills';
 
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [
@@ -91,6 +91,7 @@ auth.onAuthStateChanged(user=>{
         currentUser = { uid:user.uid, name:profile?.name||user.displayName||'User', email:user.email };
         isSubAccount = !!settings.ownerUid;
         $('dash-greeting').textContent = 'Hello, '+currentUser.name;
+        $('dash-ver').textContent = APP_VER;
         showScreen('dash-screen');
         refreshDash();
         refreshReviewBadge();

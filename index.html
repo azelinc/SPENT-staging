@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.0.8b -->
+<!-- v2.1 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPENT">
-<link rel="stylesheet" href="sp7.css">
+<link rel="stylesheet" href="sp7.css?v=21">
 </head>
 <body>
 <div id="app">
@@ -35,14 +35,17 @@
   <!-- DASHBOARD -->
   <section id="dash-screen" class="screen">
     <header class="dash-header">
-      <div class="user-info">
+      <div class="header-row-top">
         <span id="dash-greeting">Hello</span>
+        <div class="header-actions-top">
+          <button id="btn-review" class="btn-ghost btn-sm hidden">Review <span id="pending-badge" class="badge hidden">0</span></button>
+          <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+        </div>
       </div>
-      <div class="header-actions">
-        <a href="https://azelinc.github.io/Done/" class="btn-ghost btn-sm" style="text-decoration:none" target="_blank">Done</a>
+      <div class="header-row-bottom">
         <button id="btn-bills" class="btn-ghost btn-sm">Bills</button>
-        <button id="btn-review" class="btn-ghost btn-sm hidden">Review <span id="pending-badge" class="badge hidden">0</span></button>
-        <button id="btn-settings" class="btn-ghost btn-sm">Settings</button>
+        <a href="https://azelinc.github.io/Done/" class="btn-ghost btn-sm" style="text-decoration:none" target="_blank">Done</a>
+        <span class="header-ver" id="dash-ver">—</span>
       </div>
     </header>
 
