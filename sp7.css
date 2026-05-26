@@ -511,3 +511,24 @@ html, body {
   background: rgba(59,130,246,0.15);
   color: var(--accent);
 }
+
+/* Bill modal inputs */
+.bill-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+}
+.bill-input:focus {
+  border-color: var(--accent);
+}
+.bill-hint {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

@@ -886,6 +886,8 @@ $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
 
 /* ─── BILLS RENDER ─── */
 function computeBacklog(bill, monthKey){
+  // Manual override takes precedence
+  if(bill.backlogOverride >= 0) return bill.backlogOverride;
   const pm = bill.paidMonths || {};
   const paidKeys = Object.keys(pm);
   if(paidKeys.length === 0) return 0; // never paid → no backlog
@@ -1036,27 +1038,9 @@ function computeNextDueDate(dueDay){
 
 /* ─── BILL MODAL ─── */
 let editingBill = null;
-let billAmountStr = '';
 
 $('btn-bill-add').addEventListener('click',()=>openBillModal('add'));
 $('btn-bill-modal-close').addEventListener('click',closeBillModal);
-
-document.querySelectorAll('#bill-modal .numpad button').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const k=btn.dataset.k;
-    if(k==='C'){ billAmountStr=''; }
-    else if(k==='.'&&billAmountStr.includes('.')){}
-    else if(k==='0'&&billAmountStr===''){}
-    else {
-      const next=billAmountStr+k;
-      const parts=next.split('.');
-      if(parts[1]&&parts[1].length>2){}
-      else if(next.replace('.','').length>8){}
-      else { billAmountStr=next; }
-    }
-    $('bill-amount-display').textContent=billAmountStr?parseFloat(billAmountStr).toFixed(2):'0.00';
-  });
-});
 
 // Reminder days chips toggle
 $('reminder-days-chips').addEventListener('click',(e)=>{
@@ -1075,8 +1059,8 @@ function openBillModal(mode, bill){
   if(mode === 'add'){
     $('bill-modal-title').textContent = 'Add Bill';
     $('bill-name').value = '';
-    billAmountStr = '';
-    $('bill-amount-display').textContent = '0.00';
+    $('bill-amount').value = '';
+    $('bill-backlog').value = '';
     $('bill-due-day').value = '1';
     $('bill-active').checked = true;
     $('btn-bill-save').textContent = 'Save Bill';
@@ -1086,8 +1070,8 @@ function openBillModal(mode, bill){
   }else{
     $('bill-modal-title').textContent = 'Edit Bill';
     $('bill-name').value = bill.name;
-    billAmountStr = String(bill.amount || 0);
-    $('bill-amount-display').textContent = (bill.amount||0).toFixed(2);
+    $('bill-amount').value = bill.amount ? String(bill.amount) : '';
+    $('bill-backlog').value = bill.backlogOverride >= 0 ? String(bill.backlogOverride) : '';
     $('bill-due-day').value = bill.dueDay;
     $('bill-active').checked = bill.active !== false;
     $('btn-bill-save').textContent = 'Update Bill';
@@ -1115,7 +1099,7 @@ function closeBillModal(){
 
 function saveBillHandler(){
   const name = $('bill-name').value.trim();
-  const amount = parseFloat(billAmountStr) || 0;
+  const amount = parseFloat($('bill-amount').value) || 0;
   const dueDay = parseInt($('bill-due-day').value) || 1;
   const active = $('bill-active').checked;
   const errEl = $('bill-modal-error');
@@ -1136,7 +1120,15 @@ function saveBillHandler(){
 
   errEl.style.display = 'none';
 
+  // Backlog override: if empty, remove it (auto); if set, save it
+  const backlogVal = $('bill-backlog').value.trim();
   const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+  if(backlogVal !== ''){
+    data.backlogOverride = parseInt(backlogVal) || 0;
+  }else if(editingBill){
+    // Clearing a previously set override → remove it from DB
+    data.backlogOverride = null;
+  }
 
   if(editingBill){
     updateBill(currentUser.uid, editingBill.id, data).then(()=>{
