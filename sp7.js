@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.3.1';
+const APP_VER = 'v2.3.2';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -1062,14 +1062,14 @@ function renderBills(){
       sumEl.classList.add('hidden');
     }
 
-    // Sort: unpaid first (by each bill's next-due-month), then upcoming soonest, inactive last
+    // Sort: inactive last always, then unpaid first, then by due day
     bills.sort((a,b)=>{
+      const na = a.active===false ? 1 : 0;
+      const nb = b.active===false ? 1 : 0;
+      if(na !== nb) return na - nb; // inactive at bottom regardless
       const pa = !!(a.paidMonths||{})[billMonthKey(a)];
       const pb = !!(b.paidMonths||{})[billMonthKey(b)];
       if(pa !== pb) return pa ? 1 : -1; // unpaid first
-      const na = a.active===false ? 1 : 0;
-      const nb = b.active===false ? 1 : 0;
-      if(na !== nb) return na - nb;
       // Sort by current-month due day (overdue = negative days, sorts first)
       const da = computeCurrentDueDays(a.dueDay, nowDate);
       const db = computeCurrentDueDays(b.dueDay, nowDate);
@@ -1077,12 +1077,21 @@ function renderBills(){
     });
 
     list.innerHTML = '';
+    let inactiveDividerShown = false;
     bills.forEach(b=>{
+      const isInactive = b.active === false;
+      if(isInactive && !inactiveDividerShown){
+        inactiveDividerShown = true;
+        const div = document.createElement('div');
+        div.className = 'bill-divider';
+        div.textContent = 'Inactive';
+        list.appendChild(div);
+      }
       const mk = billMonthKey(b);
       const pm = b.paidMonths || {};
       const isPaid = !!pm[mk];
       const backlog = computeBacklog(b, mk);
-      // Due label based on this month's due date, not next month's
+      // Due label based on this month's due date
       const today2 = now();
       const y2 = today2.getFullYear();
       const m2 = today2.getMonth();
@@ -1097,7 +1106,6 @@ function renderBills(){
       else if(daysUntil <= 3){ dueLabel = 'in '+daysUntil+'d'; dueClass = 'bill-due-soon'; }
       else { dueLabel = 'in '+daysUntil+'d'; dueClass = ''; }
 
-      const isInactive = b.active === false;
       const checkChar = isPaid ? '☑' : '☐';
 
       let metaParts = [`Day ${b.dueDay}`, `<span class="${dueClass}">${dueLabel}</span>`];

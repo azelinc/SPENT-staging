@@ -565,3 +565,14 @@ html, body {
   pointer-events: none;
   z-index: 999;
 }
+
+/* Inactive divider */
+.bill-divider {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 12px 4px 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
