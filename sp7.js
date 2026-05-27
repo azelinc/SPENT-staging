@@ -908,10 +908,10 @@ function computeAutoBacklog(bill, monthKey){
 }
 
 function computeBacklog(bill, monthKey){
+  // Static override takes precedence
+  if(bill.backlogDisplay >= 0) return bill.backlogDisplay;
   const auto = computeAutoBacklog(bill, monthKey);
-  // backlogOffset is a relative adjustment: user wants to see less than auto
-  const offset = bill.backlogOffset || 0;
-  return Math.max(0, auto - offset);
+  return auto;
 }
 
 function togglePaid(uid, billId, monthKey, isPaid){
@@ -1082,7 +1082,7 @@ function openBillModal(mode, bill){
     $('bill-modal-title').textContent = 'Edit Bill';
     $('bill-name').value = bill.name;
     $('bill-amount').value = bill.amount ? String(bill.amount) : '';
-    $('bill-backlog').value = bill.backlogOffset > 0 ? String(Math.max(0, computeAutoBacklog(bill, billMonthKey(bill)) - bill.backlogOffset)) : '';
+    $('bill-backlog').value = bill.backlogDisplay >= 0 ? String(bill.backlogDisplay) : '';
     $('bill-due-day').value = bill.dueDay;
     $('bill-active').checked = bill.active !== false;
     $('btn-bill-save').textContent = 'Update Bill';
@@ -1131,19 +1131,14 @@ function saveBillHandler(){
 
   errEl.style.display = 'none';
 
-  // Backlog offset: if set, compute relative adjustment from auto
+  // Backlog override: save entered value directly
   const backlogVal = $('bill-backlog').value.trim();
   const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
   if(backlogVal !== ''){
-    const entered = parseInt(backlogVal) || 0;
-    const currentMk = editingBill ? billMonthKey(editingBill) : billMonthKey({dueDay});
-    const currentAuto = computeAutoBacklog(editingBill || {dueDay, paidMonths: {}}, currentMk);
-    // offset = how much the user wants to reduce from auto-computed
-    const offset = Math.max(0, currentAuto - entered);
-    data.backlogOffset = offset > 0 ? offset : 0;
+    data.backlogDisplay = parseInt(backlogVal) || 0;
   }else if(editingBill){
-    // Clearing → remove offset from DB
-    data.backlogOffset = null;
+    // Clearing → remove override from DB
+    data.backlogDisplay = null;
   }
 
   if(editingBill){
