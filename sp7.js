@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.1.9';
+const APP_VER = 'v2.2.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -982,7 +982,7 @@ function renderBills(){
     const sumEl = $('bills-summary');
     if(paidCount > 0 || backlogCount !== 0){
       sumEl.classList.remove('hidden');
-      const backlogStr = backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : (backlogCount < 0 ? `<span style="color:var(--accent-2);font-weight:600">▶ Ahead by ${Math.abs(backlogCount)}</span>` : '');
+      const backlogStr = backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount}</span>` : (backlogCount < 0 ? `<span style="color:var(--accent-2);font-weight:600">▶ Ahead ${Math.abs(backlogCount)}</span>` : '');
       sumEl.innerHTML = `<span>☑ ${paidCount}/${activeBills.length} paid</span>${backlogStr ? ' · '+backlogStr : ''}`;
     } else {
       sumEl.classList.add('hidden');

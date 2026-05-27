@@ -514,6 +514,9 @@ html, body {
   outline: none;
   margin-bottom: 10px;
   box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 .bill-search:focus {
   border-color: var(--accent);
