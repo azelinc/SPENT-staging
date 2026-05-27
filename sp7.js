@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.2.0';
+const APP_VER = 'v2.2.1';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -890,7 +890,26 @@ $('bill-search').addEventListener('input', () => renderBills());
 /* ─── BILLS RENDER ─── */
 // Which month does this bill's next payment belong to?
 function billMonthKey(bill){
-  return computeNextDueDate(bill.dueDay).slice(0,7);
+  const today = now();
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-indexed
+  function daysInMonth(yr, mn){ return new Date(yr, mn+1, 0).getDate(); }
+  const dueDay = Math.min(bill.dueDay, daysInMonth(y, m));
+  const dueDate = new Date(y, m, dueDay);
+  const mk = `${y}-${String(m+1).padStart(2,'0')}`;
+
+  // Due date hasn't passed this month → belongs to this month
+  if(dueDate >= today) return mk;
+
+  // Due date already passed this month
+  const pm = bill.paidMonths || {};
+  // Not paid → still this month's bill (overdue)
+  if(!pm[mk]) return mk;
+  // Paid → advance to next month
+  const nm = m + 1;
+  const ny = y + Math.floor(nm / 12);
+  const nn = nm % 12;
+  return `${ny}-${String(nn+1).padStart(2,'0')}`;
 }
 
 function computeAutoBacklog(bill, monthKey){
@@ -996,8 +1015,9 @@ function renderBills(){
       const na = a.active===false ? 1 : 0;
       const nb = b.active===false ? 1 : 0;
       if(na !== nb) return na - nb;
-      const da = Math.ceil((new Date(computeNextDueDate(a.dueDay)) - nowDate) / 86400000);
-      const db = Math.ceil((new Date(computeNextDueDate(b.dueDay)) - nowDate) / 86400000);
+      // Sort by current-month due day (overdue = negative days, sorts first)
+      const da = computeCurrentDueDays(a.dueDay, nowDate);
+      const db = computeCurrentDueDays(b.dueDay, nowDate);
       return da - db;
     });
 
@@ -1007,10 +1027,17 @@ function renderBills(){
       const pm = b.paidMonths || {};
       const isPaid = !!pm[mk];
       const backlog = computeBacklog(b, mk);
-      const nextDue = computeNextDueDate(b.dueDay);
-      const daysUntil = Math.ceil((new Date(nextDue) - nowDate) / 86400000);
+      // Due label based on this month's due date, not next month's
+      const today2 = now();
+      const y2 = today2.getFullYear();
+      const m2 = today2.getMonth();
+      function dim(yr,mn){ return new Date(yr, mn+1, 0).getDate(); }
+      const cmpDay = new Date(y2, m2, Math.min(b.dueDay, dim(y2,m2)));
+      const daysUntil = Math.ceil((cmpDay - today2) / 86400000);
+      const isOverdue = daysUntil < 0 && !isPaid;
       let dueLabel, dueClass;
-      if(daysUntil === 0){ dueLabel = 'today'; dueClass = 'bill-due-overdue'; }
+      if(isOverdue){ dueLabel = Math.abs(daysUntil)+'d overdue'; dueClass = 'bill-due-overdue'; }
+      else if(daysUntil === 0){ dueLabel = 'today'; dueClass = 'bill-due-overdue'; }
       else if(daysUntil < 0){ dueLabel = Math.abs(daysUntil)+'d ago'; dueClass = 'bill-due-overdue'; }
       else if(daysUntil <= 3){ dueLabel = 'in '+daysUntil+'d'; dueClass = 'bill-due-soon'; }
       else { dueLabel = 'in '+daysUntil+'d'; dueClass = ''; }
@@ -1054,6 +1081,15 @@ function renderBills(){
       list.appendChild(row);
     });
   });
+}
+
+/* ─── CURRENT MONTH DUE DATE HELPER ─── */
+function computeCurrentDueDays(dueDay, reference){
+  const d = reference || now();
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  function dim(yr,mn){ return new Date(yr, mn+1, 0).getDate(); }
+  return Math.ceil((new Date(y, m, Math.min(dueDay, dim(y,m))) - d) / 86400000);
 }
 
 /* ─── NEXT DUE DATE CALC ─── */

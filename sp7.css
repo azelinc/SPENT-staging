@@ -505,7 +505,7 @@ html, body {
 /* Bill search */
 .bill-search {
   width: 100%;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 14px;
@@ -515,7 +515,7 @@ html, body {
   margin-bottom: 10px;
   box-sizing: border-box;
   position: sticky;
-  top: 0;
+  top: 56px;
   z-index: 5;
 }
 .bill-search:focus {
