@@ -1,8 +1,8 @@
-const CACHE = 'spent-v35';
+const CACHE = 'spent-v36';
 const FILES = [
   '/SPENT-staging/',
   '/SPENT-staging/index.html',
-  '/SPENT-staging/sp7.css?v=25',
+  '/SPENT-staging/sp7.css?v=26',
   '/SPENT-staging/sp7.js',
   '/SPENT-staging/manifest.json',
   '/SPENT-staging/icon-192.png',

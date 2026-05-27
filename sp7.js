@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.2.1';
+const APP_VER = 'v2.3.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -422,6 +422,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       });
     });
   }
+  updateDoneBadge();
 }
 
 /* ─── ADD EXPENSE ─── */
@@ -960,10 +961,51 @@ function computeBacklog(bill, monthKey){
 
 function togglePaid(uid, billId, monthKey, isPaid){
   if(isPaid){
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => renderBills());
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => { renderBills(); updateDoneBadge(); });
   }else{
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => renderBills());
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => { renderBills(); updateDoneBadge(); });
   }
+}
+
+// Auto-advance: if bill is ahead (backlog < 0) and current month unpaid, mark paid
+function autoAdvanceBills(bills){
+  const updates = [];
+  bills.forEach(b => {
+    if(b.active === false) return;
+    const mk = billMonthKey(b);
+    const pm = b.paidMonths || {};
+    if(pm[mk]) return; // already paid
+    const backlog = computeBacklog(b, mk);
+    if(backlog >= 0) return; // not ahead
+    
+    // Ahead by |backlog| months — mark current month paid, reduce ahead by 1
+    const newOffset = (b.backlogOffset || 0) - 1;
+    const data = {};
+    data['paidMonths/' + mk] = true;
+    if(newOffset === 0) data.backlogOffset = null;
+    else data.backlogOffset = newOffset;
+    updates.push({id: b.id, data});
+  });
+  return updates;
+}
+
+/* ─── DONE BADGE ─── */
+function updateDoneBadge(){
+  const badge = $('done-badge');
+  if(!currentUser){ badge.classList.add('hidden'); return; }
+  loadBills(currentUser.uid).then(bills=>{
+    const unpaid = bills.filter(b => {
+      if(b.active === false) return false;
+      const mk = billMonthKey(b);
+      return !(b.paidMonths||{})[mk];
+    }).length;
+    if(unpaid > 0){
+      badge.textContent = unpaid;
+      badge.classList.remove('hidden');
+    }else{
+      badge.classList.add('hidden');
+    }
+  });
 }
 
 function renderBills(){
@@ -972,6 +1014,19 @@ function renderBills(){
   if(!currentUser) return;
 
   loadBills(currentUser.uid).then(bills=>{
+    // Auto-advance ahead bills before rendering
+    const advances = autoAdvanceBills(bills);
+    if(advances.length > 0){
+      const promises = advances.map(a => updateBill(currentUser.uid, a.id, a.data));
+      return Promise.all(promises).then(() => loadBills(currentUser.uid));
+    }
+    return bills;
+  }).then(bills=>{
+    if(!bills) return; // already handled by early exit above
+    
+    // Update Done badge
+    updateDoneBadge();
+    
     // Apply search filter
     const searchVal = ($('bill-search').value || '').toLowerCase().trim();
     if(searchVal){
