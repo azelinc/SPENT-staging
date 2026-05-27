@@ -908,10 +908,12 @@ function computeAutoBacklog(bill, monthKey){
 }
 
 function computeBacklog(bill, monthKey){
-  // Static override takes precedence
-  if(bill.backlogDisplay >= 0) return bill.backlogDisplay;
   const auto = computeAutoBacklog(bill, monthKey);
-  return auto;
+  // backlogOffset = relative adjustment (can be negative)
+  // displayed = auto - offset
+  // e.g. auto=2, offset=-1 → displayed=3 (user added 1)
+  const offset = bill.backlogOffset || 0;
+  return Math.max(0, auto - offset);
 }
 
 function togglePaid(uid, billId, monthKey, isPaid){
@@ -1082,7 +1084,7 @@ function openBillModal(mode, bill){
     $('bill-modal-title').textContent = 'Edit Bill';
     $('bill-name').value = bill.name;
     $('bill-amount').value = bill.amount ? String(bill.amount) : '';
-    $('bill-backlog').value = bill.backlogDisplay >= 0 ? String(bill.backlogDisplay) : '';
+    $('bill-backlog').value = bill.backlogOffset !== undefined && bill.backlogOffset !== null ? String(Math.max(0, computeAutoBacklog(bill, billMonthKey(bill)) - bill.backlogOffset)) : '';
     $('bill-due-day').value = bill.dueDay;
     $('bill-active').checked = bill.active !== false;
     $('btn-bill-save').textContent = 'Update Bill';
@@ -1131,14 +1133,21 @@ function saveBillHandler(){
 
   errEl.style.display = 'none';
 
-  // Backlog override: save entered value directly
+  // Backlog offset: save as relative adjustment (can be negative)
   const backlogVal = $('bill-backlog').value.trim();
   const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
   if(backlogVal !== ''){
-    data.backlogDisplay = parseInt(backlogVal) || 0;
+    const entered = parseInt(backlogVal) || 0;
+    const currentMk = editingBill ? billMonthKey(editingBill) : billMonthKey({dueDay});
+    const currentAuto = computeAutoBacklog(editingBill || {dueDay, paidMonths: {}}, currentMk);
+    // offset = currentAuto - entered
+    // Negative offset means user wants to ADD to auto (show more)
+    // Positive offset means user wants to SUBTRACT (show less)
+    const offset = currentAuto - entered;
+    data.backlogOffset = offset !== 0 ? offset : 0;
   }else if(editingBill){
-    // Clearing → remove override from DB
-    data.backlogDisplay = null;
+    // Clearing → remove offset from DB
+    data.backlogOffset = null;
   }
 
   if(editingBill){
