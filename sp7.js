@@ -17,7 +17,8 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.1-bills';
+const APP_VER = 'v2.1.7';
+$('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [

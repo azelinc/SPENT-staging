@@ -532,3 +532,15 @@ html, body {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* Global version badge on every screen */
+.global-ver {
+  position: fixed;
+  bottom: 4px;
+  right: 8px;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 999;
+}
