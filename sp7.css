@@ -480,6 +480,10 @@ html, body {
 .bill-row.bill-soon {
   border-left-color: #f59e0b;
 }
+.bill-row.bill-paid .item-name {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
 .bill-check {
   font-size: 1.2rem;
   width: 24px;
