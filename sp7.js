@@ -890,12 +890,10 @@ function billMonthKey(bill){
   return computeNextDueDate(bill.dueDay).slice(0,7);
 }
 
-function computeBacklog(bill, monthKey){
-  // Manual override takes precedence
-  if(bill.backlogOverride >= 0) return bill.backlogOverride;
+function computeAutoBacklog(bill, monthKey){
   const pm = bill.paidMonths || {};
   const paidKeys = Object.keys(pm);
-  if(paidKeys.length === 0) return 0; // never paid → no backlog
+  if(paidKeys.length === 0) return 0;
   const [year, month] = monthKey.split('-').map(Number);
   let backlog = 0;
   for(let y = year, m = month; ;){
@@ -907,6 +905,13 @@ function computeBacklog(bill, monthKey){
     if(backlog > 24) break;
   }
   return backlog;
+}
+
+function computeBacklog(bill, monthKey){
+  const auto = computeAutoBacklog(bill, monthKey);
+  // backlogOffset is a relative adjustment: user wants to see less than auto
+  const offset = bill.backlogOffset || 0;
+  return Math.max(0, auto - offset);
 }
 
 function togglePaid(uid, billId, monthKey, isPaid){
@@ -1077,7 +1082,7 @@ function openBillModal(mode, bill){
     $('bill-modal-title').textContent = 'Edit Bill';
     $('bill-name').value = bill.name;
     $('bill-amount').value = bill.amount ? String(bill.amount) : '';
-    $('bill-backlog').value = bill.backlogOverride >= 0 ? String(bill.backlogOverride) : '';
+    $('bill-backlog').value = bill.backlogOffset > 0 ? String(Math.max(0, computeAutoBacklog(bill, billMonthKey(bill)) - bill.backlogOffset)) : '';
     $('bill-due-day').value = bill.dueDay;
     $('bill-active').checked = bill.active !== false;
     $('btn-bill-save').textContent = 'Update Bill';
@@ -1126,14 +1131,19 @@ function saveBillHandler(){
 
   errEl.style.display = 'none';
 
-  // Backlog override: if empty, remove it (auto); if set, save it
+  // Backlog offset: if set, compute relative adjustment from auto
   const backlogVal = $('bill-backlog').value.trim();
   const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
   if(backlogVal !== ''){
-    data.backlogOverride = parseInt(backlogVal) || 0;
+    const entered = parseInt(backlogVal) || 0;
+    const currentMk = editingBill ? billMonthKey(editingBill) : billMonthKey({dueDay});
+    const currentAuto = computeAutoBacklog(editingBill || {dueDay, paidMonths: {}}, currentMk);
+    // offset = how much the user wants to reduce from auto-computed
+    const offset = Math.max(0, currentAuto - entered);
+    data.backlogOffset = offset > 0 ? offset : 0;
   }else if(editingBill){
-    // Clearing a previously set override → remove it from DB
-    data.backlogOverride = null;
+    // Clearing → remove offset from DB
+    data.backlogOffset = null;
   }
 
   if(editingBill){
