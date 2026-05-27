@@ -422,7 +422,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       });
     });
   }
-  updateDoneBadge();
+  updateBillBadge();
 }
 
 /* ─── ADD EXPENSE ─── */
@@ -961,9 +961,9 @@ function computeBacklog(bill, monthKey){
 
 function togglePaid(uid, billId, monthKey, isPaid){
   if(isPaid){
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => { renderBills(); updateDoneBadge(); });
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => { renderBills(); updateBillBadge(); });
   }else{
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => { renderBills(); updateDoneBadge(); });
+    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => { renderBills(); updateBillBadge(); });
   }
 }
 
@@ -990,8 +990,8 @@ function autoAdvanceBills(bills){
 }
 
 /* ─── DONE BADGE ─── */
-function updateDoneBadge(){
-  const badge = $('done-badge');
+function updateBillBadge(){
+  const badge = $('bill-badge');
   if(!currentUser){ badge.classList.add('hidden'); return; }
   loadBills(currentUser.uid).then(bills=>{
     const unpaid = bills.filter(b => {
@@ -1025,7 +1025,7 @@ function renderBills(){
     if(!bills) return; // already handled by early exit above
     
     // Update Done badge
-    updateDoneBadge();
+    updateBillBadge();
     
     // Apply search filter
     const searchVal = ($('bill-search').value || '').toLowerCase().trim();
