@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.3.2';
+const APP_VER = 'v2.3.3';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -1113,7 +1113,12 @@ function renderBills(){
       else if(backlog < 0) metaParts.push(`<span style="color:var(--accent-2);font-weight:600">★ Ahead by ${Math.abs(backlog)}</span>`);
 
       const row = document.createElement('div');
-      row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '') + (isPaid ? ' bill-paid' : '');
+      const rowClasses = ['item', 'bill-row'];
+      if(isInactive) rowClasses.push('bill-inactive');
+      if(isPaid) rowClasses.push('bill-paid');
+      else if(isOverdue) rowClasses.push('bill-overdue');
+      else if(daysUntil <= 3 && daysUntil >= 0) rowClasses.push('bill-soon');
+      row.className = rowClasses.join(' ');
       row.dataset.id = b.id;
       row.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
