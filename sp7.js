@@ -892,6 +892,26 @@ function billMonthKey(bill){
 
 function computeAutoBacklog(bill, monthKey){
   const pm = bill.paidMonths || {};
+  // Count unpaid months from bill creation forward to current
+  // This way: paying a month reduces backlog by 1, not to 0
+  const createdAt = bill.createdAt;
+  if(createdAt){
+    const cd = new Date(createdAt);
+    const cy = cd.getFullYear();
+    const cm = cd.getMonth() + 1; // 1-indexed
+    const [my, mm] = monthKey.split('-').map(Number);
+    let unpaid = 0;
+    for(let y = cy, m = cm; ;){
+      if(y > my || (y === my && m > mm)) break;
+      const key = `${y}-${String(m).padStart(2,'0')}`;
+      if(key !== monthKey && !pm[key]) unpaid++;
+      m++;
+      if(m > 12){ m = 1; y++; }
+      if(unpaid > 100) break;
+    }
+    return unpaid;
+  }
+  // Fallback for bills without createdAt
   const paidKeys = Object.keys(pm);
   if(paidKeys.length === 0) return 0;
   const [year, month] = monthKey.split('-').map(Number);
@@ -938,9 +958,10 @@ function renderBills(){
 
     const nowDate = now();
 
-    // Compute summary — each bill uses its own next-due-month
+    // Compute summary — only active bills counted
+    const activeBills = bills.filter(b => b.active !== false);
     let paidCount = 0, backlogCount = 0;
-    bills.forEach(b => {
+    activeBills.forEach(b => {
       const mk = billMonthKey(b);
       const pm = b.paidMonths || {};
       if(pm[mk]) paidCount++;
@@ -951,7 +972,7 @@ function renderBills(){
     const sumEl = $('bills-summary');
     if(paidCount > 0 || backlogCount > 0){
       sumEl.classList.remove('hidden');
-      sumEl.innerHTML = `<span>☑ ${paidCount}/${bills.length} paid</span>` + (backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : '');
+      sumEl.innerHTML = `<span>☑ ${paidCount}/${activeBills.length} paid</span>` + (backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : '');
     } else {
       sumEl.classList.add('hidden');
     }
