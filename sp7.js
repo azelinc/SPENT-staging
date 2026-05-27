@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.1.8';
+const APP_VER = 'v2.1.9';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -884,6 +884,9 @@ $('btn-bills').addEventListener('click',()=>{
 });
 $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
 
+// Live search filter
+$('bill-search').addEventListener('input', () => renderBills());
+
 /* ─── BILLS RENDER ─── */
 // Which month does this bill's next payment belong to?
 function billMonthKey(bill){
@@ -931,9 +934,9 @@ function computeBacklog(bill, monthKey){
   const auto = computeAutoBacklog(bill, monthKey);
   // backlogOffset = relative adjustment (can be negative)
   // displayed = auto - offset
-  // e.g. auto=2, offset=-1 → displayed=3 (user added 1)
+  // e.g. auto=2, entered=-1 → offset=2-(-1)=3 → displayed=2-3=-1 (ahead 1)
   const offset = bill.backlogOffset || 0;
-  return Math.max(0, auto - offset);
+  return auto - offset; // negative = paid ahead
 }
 
 function togglePaid(uid, billId, monthKey, isPaid){
@@ -950,8 +953,15 @@ function renderBills(){
   if(!currentUser) return;
 
   loadBills(currentUser.uid).then(bills=>{
+    // Apply search filter
+    const searchVal = ($('bill-search').value || '').toLowerCase().trim();
+    if(searchVal){
+      bills = bills.filter(b => b.name.toLowerCase().includes(searchVal));
+    }
+
     if(bills.length === 0){
-      list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">No bills yet. Tap + Add to create one.</span></div></div>';
+      const searchVal = ($('bill-search').value || '').toLowerCase().trim();
+      list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">'+(searchVal ? 'No bills match &quot;'+esc(searchVal)+'&quot;' : 'No bills yet. Tap + Add to create one.')+'</span></div></div>';
       $('bills-summary').classList.add('hidden');
       return;
     }
@@ -970,9 +980,10 @@ function renderBills(){
 
     // Summary strip
     const sumEl = $('bills-summary');
-    if(paidCount > 0 || backlogCount > 0){
+    if(paidCount > 0 || backlogCount !== 0){
       sumEl.classList.remove('hidden');
-      sumEl.innerHTML = `<span>☑ ${paidCount}/${activeBills.length} paid</span>` + (backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : '');
+      const backlogStr = backlogCount > 0 ? `<span class="bill-due-overdue">⏳ ${backlogCount} month${backlogCount>1?'s':''}</span>` : (backlogCount < 0 ? `<span style="color:var(--accent-2);font-weight:600">▶ Ahead by ${Math.abs(backlogCount)}</span>` : '');
+      sumEl.innerHTML = `<span>☑ ${paidCount}/${activeBills.length} paid</span>${backlogStr ? ' · '+backlogStr : ''}`;
     } else {
       sumEl.classList.add('hidden');
     }
@@ -1009,6 +1020,7 @@ function renderBills(){
 
       let metaParts = [`Day ${b.dueDay}`, `<span class="${dueClass}">${dueLabel}</span>`];
       if(backlog > 1) metaParts.push(`<span class="bill-due-overdue">+${backlog} unpaid</span>`);
+      else if(backlog < 0) metaParts.push(`<span style="color:var(--accent-2);font-weight:600">★ Ahead by ${Math.abs(backlog)}</span>`);
 
       const row = document.createElement('div');
       row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '') + (isPaid ? ' bill-paid' : '');
@@ -1105,7 +1117,7 @@ function openBillModal(mode, bill){
     $('bill-modal-title').textContent = 'Edit Bill';
     $('bill-name').value = bill.name;
     $('bill-amount').value = bill.amount ? String(bill.amount) : '';
-    $('bill-backlog').value = bill.backlogOffset !== undefined && bill.backlogOffset !== null ? String(Math.max(0, computeAutoBacklog(bill, billMonthKey(bill)) - bill.backlogOffset)) : '';
+    $('bill-backlog').value = bill.backlogOffset !== undefined && bill.backlogOffset !== null ? String(computeAutoBacklog(bill, billMonthKey(bill)) - bill.backlogOffset) : '';
     $('bill-due-day').value = bill.dueDay;
     $('bill-active').checked = bill.active !== false;
     $('btn-bill-save').textContent = 'Update Bill';
