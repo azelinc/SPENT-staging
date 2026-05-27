@@ -119,24 +119,20 @@ html, body {
 .header-row-top #dash-greeting {
   margin-right: auto;
 }
-.header-ver {
-  font-size: 10px;
-  color: var(--muted);
-  opacity: 0.5;
-  white-space: nowrap;
-  padding: 0 4px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-#dash-greeting { font-weight: 600; }
-
 .header-row-bottom {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 4px;
+}
+.header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
+#dash-greeting { font-weight: 600; }
+
+/* HERO */
 .hero {
   display: flex;
   gap: 12px;

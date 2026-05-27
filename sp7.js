@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.1.7';
+const APP_VER = 'v2.1.8';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -92,7 +92,6 @@ auth.onAuthStateChanged(user=>{
         currentUser = { uid:user.uid, name:profile?.name||user.displayName||'User', email:user.email };
         isSubAccount = !!settings.ownerUid;
         $('dash-greeting').textContent = 'Hello, '+currentUser.name;
-        $('dash-ver').textContent = APP_VER;
         showScreen('dash-screen');
         refreshDash();
         refreshReviewBadge();
@@ -237,14 +236,12 @@ $('login-password').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(
 function doLogin(){
   const email=$('login-email').value.trim();
   const password=$('login-password').value;
-  const name=$('login-name').value.trim();
   if(!email||!password){ alert('Enter email and password'); return; }
   if(!authReady){ alert('Auth initializing, try again in 2 seconds'); return; }
 
   auth.signInWithEmailAndPassword(email, password)
     .then(cred=>{
-      currentUser = { uid:cred.user.uid, name:name||cred.user.displayName||'User', email:cred.user.email };
-      if(name) saveUserProfile(cred.user.uid, name);
+      currentUser = { uid:cred.user.uid, name:cred.user.displayName||'User', email:cred.user.email };
       $('dash-greeting').textContent = 'Hello, '+currentUser.name;
       showScreen('dash-screen');
       refreshDash();
@@ -253,12 +250,14 @@ function doLogin(){
     })
     .catch(err=>{
       if(err.code==='auth/user-not-found'){
-        if(!name){ alert('Enter your name to create a new account'); return; }
         if(password.length<6){ alert('Password must be at least 6 characters'); return; }
+        // New account: prompt for display name after signup
+        const displayName = prompt('Enter your display name:') || 'User';
+        if(!displayName){ return; }
         return auth.createUserWithEmailAndPassword(email, password)
           .then(cred=>{
-            currentUser = { uid:cred.user.uid, name, email:cred.user.email };
-            saveUserProfile(cred.user.uid, name);
+            currentUser = { uid:cred.user.uid, name:displayName, email:cred.user.email };
+            saveUserProfile(cred.user.uid, displayName);
             $('dash-greeting').textContent = 'Hello, '+currentUser.name;
             showScreen('dash-screen');
             refreshDash();
@@ -1009,7 +1008,7 @@ function renderBills(){
       const checkChar = isPaid ? '☑' : '☐';
 
       let metaParts = [`Day ${b.dueDay}`, `<span class="${dueClass}">${dueLabel}</span>`];
-      if(backlog > 0) metaParts.push(`<span class="bill-due-overdue">+${backlog} unpaid</span>`);
+      if(backlog > 1) metaParts.push(`<span class="bill-due-overdue">+${backlog} unpaid</span>`);
 
       const row = document.createElement('div');
       row.className = 'item bill-row' + (isInactive ? ' bill-inactive' : '') + (isPaid ? ' bill-paid' : '');
