@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.0';
+const APP_VER = 'v2.4.1';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -78,10 +78,56 @@ function detectCategory(merchant){
 }
 
 /* ─── NAV ─── */
-function showScreen(id){
+const SCREEN_PARENT = {
+  'add-screen': 'dash-screen',
+  'review-screen': 'dash-screen',
+  'settings-screen': 'dash-screen',
+  'bills-screen': 'dash-screen'
+};
+let backTimer = null;
+
+function showScreen(id, silent){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $(id).classList.add('active');
+  if(!silent && id !== 'login-screen'){
+    history.pushState({screen: id}, '', '#'+id);
+  }
 }
+
+window.addEventListener('popstate', e=>{
+  const state = e.state;
+  if(state && state.screen){
+    const parent = SCREEN_PARENT[state.screen];
+    if(parent){
+      showScreen(parent, true); // silent — no history push
+    }
+  }else{
+    if(!backTimer){
+      backTimer = setTimeout(()=>{ backTimer = null; }, 2000);
+      const msg = document.getElementById('back-exit-msg') || (function(){
+        const el = document.createElement('div');
+        el.id = 'back-exit-msg';
+        el.textContent = 'Press back again to exit';
+        Object.assign(el.style, {
+          position:'fixed', bottom:'80px', left:'50%', transform:'translateX(-50%)',
+          background:'var(--surface-2)', color:'var(--muted)', padding:'8px 16px',
+          borderRadius:'8px', fontSize:'0.8rem', zIndex:'999', transition:'opacity 0.3s'
+        });
+        document.body.appendChild(el);
+        return el;
+      })();
+      msg.style.opacity = '1';
+      setTimeout(()=>{ msg.style.opacity = '0'; }, 1500);
+    }else{
+      clearTimeout(backTimer);
+      backTimer = null;
+      const msg = document.getElementById('back-exit-msg');
+      if(msg) msg.remove();
+      window.close();
+    }
+    history.replaceState({screen: 'dash-screen'}, '', '#dash-screen');
+  }
+});
 
 /* ─── AUTH ─── */
 auth.onAuthStateChanged(user=>{
