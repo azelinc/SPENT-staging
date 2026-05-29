@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.3';
+const APP_VER = 'v2.4.4';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -66,6 +66,10 @@ let lastPayment = 'Cash';
 function $(id){ return document.getElementById(id); }
 function now(){ return new Date(); }
 function fmtDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function fmtDateDisplay(iso){
+  const d = new Date(iso+'T00:00:00');
+  return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${d.getFullYear()}`;
+}
 function fmtMoney(n){ return 'RM '+n.toFixed(2); }
 function parseMoney(s){ const v=parseFloat(s); return isNaN(v)?0:v; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
@@ -483,6 +487,9 @@ function openAdd(preMerchant,preCategory){
   $('add-merchant').value = merchant;
   const cat = preCategory || (merchant ? detectCategory(merchant) : 'Others');
   $('cat-detected').textContent=cat;
+  const todayIso = fmtDate(now());
+  $('add-date').value = todayIso;
+  $('date-detected').textContent = fmtDateDisplay(todayIso);
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
   loadPaymentMethods(currentUser.uid).then(methods=>{
@@ -500,6 +507,8 @@ function openEdit(expense){
   $('amount-display').textContent = expense.amount.toFixed(2);
   $('add-merchant').value = expense.merchant;
   $('cat-detected').textContent = expense.category;
+  $('add-date').value = expense.date || fmtDate(now());
+  $('date-detected').textContent = fmtDateDisplay($('add-date').value);
   $('btn-save').textContent = 'Update';
   $('btn-delete').classList.remove('hidden');
   loadPaymentMethods(expense._uid).then(methods=>{
@@ -590,18 +599,31 @@ $('add-category').addEventListener('change',()=>{
   $('add-category').classList.add('hidden');
 });
 
+// date override (tap badge to change)
+$('date-detected').addEventListener('click',()=>{
+  $('date-detected').classList.toggle('hidden');
+  $('add-date').classList.toggle('hidden');
+  if(!$('add-date').classList.contains('hidden')) $('add-date').showPicker();
+});
+$('add-date').addEventListener('change',()=>{
+  $('date-detected').textContent = fmtDateDisplay($('add-date').value);
+  $('date-detected').classList.remove('hidden');
+  $('add-date').classList.add('hidden');
+});
+
 // save / update
 $('btn-save').addEventListener('click',()=>{
   const merchant=$('add-merchant').value.trim();
   const amount=parseMoney(amountStr);
   const category = $('cat-detected').textContent || detectCategory(merchant);
   const payment = $('add-payment').value || 'Cash';
+  const useDate = $('add-date').value || fmtDate(now());
   if(!merchant){ alert('Enter merchant'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
 
   if(editTarget){
     // UPDATE MODE
-    const data = { merchant, amount, category, payment };
+    const data = { merchant, amount, category, payment, date: useDate };
     updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
       lastMerchant = merchant;
       lastPayment = payment;
@@ -614,7 +636,7 @@ $('btn-save').addEventListener('click',()=>{
     const ts = Date.now();
     const expense = {
       merchant, amount, category, payment,
-      date: fmtDate(now()),
+      date: useDate,
       timestamp: ts,
       status: 'pending'
     };
