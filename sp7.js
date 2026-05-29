@@ -586,8 +586,8 @@ function openAdd(preMerchant, preCategory){
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
   $('add-remarks').value = '';
-  selectedCat = preCat || lastCategory || '';
-  selectedSub = preSub || lastSubCategory || '';
+  selectedCat = preCategory || lastCategory || '';
+  selectedSub = '';
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
   buildCatChips(selectedCat);
