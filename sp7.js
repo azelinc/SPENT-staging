@@ -468,6 +468,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
         <div class="item-left">
           <div class="item-name-row">
             <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
+            ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
             ${inlineActions}
           </div>
           <span class="item-meta">${e.payment || 'Cash'} · ${e.date}</span>

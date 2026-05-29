@@ -1,4 +1,4 @@
-const CACHE = 'spent-v50';
+const CACHE = 'spent-v51';
 const FILES = [
   '/',
   '/index.html',
