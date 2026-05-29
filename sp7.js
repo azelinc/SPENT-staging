@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.7';
+const APP_VER = 'v2.6.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -37,7 +37,16 @@ const DEFAULT_CATEGORY_SUBS = {
   'Others': []
 };
 let categorySubs = null;
-const DEFAULT_PAYMENT_METHODS = ['Cash', 'Card', 'QR', 'Bank Transfer'];
+const DEFAULT_ACCOUNTS = {
+  'Cash': '#059669',
+  'CC': '#2563eb',
+  'QR': '#06b6d4',
+  'Bank Transfer': '#64748b',
+  'GrabPay': '#10b981',
+  'Touch n Go': '#0284c7',
+  'Others': '#94a3b8'
+};
+let accountColors = {}; // loaded from Firebase per-user
 const CAT_MAP = {
   'food & dining': ['mamak','kfc','mcd','tealive','starbucks','grabfood','foodpanda','nando','pizza','sushi','ramen','nasik','warung','restoran','cafe','kopitiam','dimsum','bakery','7eats','domino'],
   'groceries': ['99 speedmart','aeon','jaya grocer','village grocer','lotus','tesco','mydin','guardian','watson','ekono','mr diy','shell select','petronas mesra','7-eleven','family mart','grocer'],
@@ -245,9 +254,17 @@ function loadOwnerLinks(ownerUid){
 }
 
 function loadPaymentMethods(uid){
-  return loadSettings(uid).then(s=>{
-    if(Array.isArray(s.paymentMethods) && s.paymentMethods.length>0) return s.paymentMethods;
-    return DEFAULT_PAYMENT_METHODS;
+  return db.ref(`users/${uid}/settings/accounts`).once('value').then(s=>{
+    const val = s.val();
+    if(val && typeof val === 'object'){
+      accountColors = val;
+      return Object.keys(val);
+    }
+    accountColors = {};
+    return Object.keys(DEFAULT_ACCOUNTS);
+  }).catch(()=>{
+    accountColors = {};
+    return Object.keys(DEFAULT_ACCOUNTS);
   });
 }
 
@@ -849,13 +866,14 @@ function buildSuggest(){
 window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); const cat=detectCategory(m); $('cat-detected').textContent=cat; $('add-category').value=cat; const chips=$('cat-chips'); if(chips&&chips.innerHTML){ chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat)); } if(!$('sub-chips').classList.contains('hidden')){ $('sub-chips').classList.add('hidden'); $('cat-chips').classList.remove('hidden'); } };
 
 // payment method chips
-let currentPayMethods = DEFAULT_PAYMENT_METHODS.slice();
+let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
 function buildPayChips(methods, selected){
   currentPayMethods = methods;
   const wrap = $('pay-chips');
   wrap.innerHTML = methods.map(m => {
     const cls = m === selected ? 'tile on' : 'tile';
-    return `\u003cdiv class="${cls}" data-m="${esc(m)}"\u003e${esc(m)}\u003c/div\u003e`;
+    const color = accountColors[m] || DEFAULT_ACCOUNTS[m] || '#64748b';
+    return `<div class="${cls}" style="display:inline-flex;align-items:center;gap:4px" data-m="${esc(m)}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>${esc(m)}</div>`;
   }).join('');
   wrap.querySelectorAll('.tile').forEach(el => {
     el.addEventListener('click', () => {
@@ -1053,9 +1071,10 @@ function renderSettings(){
     // Sync saved filter into global state
     summaryFilter = settings.partnerFilter || 'both';
 
-    // Load payment methods
-    const pms = Array.isArray(settings.paymentMethods) ? settings.paymentMethods : DEFAULT_PAYMENT_METHODS;
-    $('set-payment-methods').value = pms.join(', ');
+    // Load payment methods / accounts
+    loadPaymentMethods(uid).then(()=>{
+      renderAccountsList();
+    });
   });
 
   // Owner panels
@@ -1115,13 +1134,69 @@ function renderSettings(){
   });
 }
 
-$('btn-save-payments').addEventListener('click',()=>{
-  if(!currentUser) return;
-  const raw = $('set-payment-methods').value.trim();
-  const pms = raw ? raw.split(',').map(s=>s.trim()).filter(s=>s.length>0) : DEFAULT_PAYMENT_METHODS;
-  saveSettings(currentUser.uid, { paymentMethods: pms }).then(()=>{
-    alert('Payment methods saved');
+/* ── Render account editor in settings ── */
+function renderAccountsList(addNew, useDefaults){
+  const list = $('accounts-list');
+  if(!list) return;
+  const src = useDefaults ? DEFAULT_ACCOUNTS : (Object.keys(accountColors).length ? accountColors : DEFAULT_ACCOUNTS);
+  const names = Object.keys(src);
+  let html = names.map((name,i)=>{
+    const color = src[name] || '#64748b';
+    return `<div class="acc-row" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input type="color" class="acc-color" value="${color}"
+        style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
+      <input class="acc-name" value="${esc(name)}"
+        style="flex:1;background:#0b1221;border:1px solid #334155;border-radius:4px;color:#f8fafc;font-size:.82rem;padding:.3rem .5rem">
+      <button class="acc-del" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:2px 6px">×</button>
+    </div>`;
+  }).join('');
+  if(addNew){
+    html += `<div class="acc-row" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input type="color" class="acc-color" value="#10b981"
+        style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
+      <input class="acc-name" value="" placeholder="New account"
+        style="flex:1;background:#0b1221;border:1px solid #334155;border-radius:4px;color:#f8fafc;font-size:.82rem;padding:.3rem .5rem">
+      <button class="acc-del" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:2px 6px">×</button>
+    </div>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll('.acc-del').forEach(btn=>{
+    btn.onclick = function(){ this.closest('.acc-row').remove(); };
   });
+}
+
+$('btn-add-account').addEventListener('click',()=>{
+  renderAccountsList(true);
+});
+
+$('btn-save-accounts').addEventListener('click',()=>{
+  if(!currentUser) return;
+  const rows = document.querySelectorAll('#accounts-list .acc-row');
+  const obj = {};
+  let validCount = 0;
+  rows.forEach(row=>{
+    const name = row.querySelector('.acc-name').value.trim();
+    const color = row.querySelector('.acc-color').value;
+    if(name){ obj[name] = color; validCount++; }
+  });
+  if(validCount===0){
+    $('accounts-status').textContent = '❌ At least one account required';
+    return;
+  }
+  db.ref(`users/${currentUser.uid}/settings/accounts`).set(obj).then(()=>{
+    accountColors = obj;
+    currentPayMethods = Object.keys(obj);
+    $('accounts-status').textContent = '✅ Saved';
+    setTimeout(()=>{$('accounts-status').textContent='';}, 2000);
+  }).catch(e=>{
+    $('accounts-status').textContent = '❌ '+e.message;
+  });
+});
+
+$('btn-reset-accounts').addEventListener('click',()=>{
+  accountColors = {};
+  renderAccountsList(false, true);
+  $('accounts-status').textContent = 'Defaults restored — save to confirm';
 });
 
 $('btn-save-owner').addEventListener('click',()=>{
