@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.7';
+const APP_VER = 'v2.4.8';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -96,6 +96,11 @@ function detectCategory(merchant){
 function loadCategorySubs(){
   return db.ref('config/categorySubs').once('value').then(s=>{
     categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
+    // Populate hidden category select to match config
+    const sel = $('add-category');
+    if(sel){
+      sel.innerHTML = Object.keys(categorySubs).map(c=>`<option>${c}</option>`).join('');
+    }
   }).catch(()=>{
     categorySubs = DEFAULT_CATEGORY_SUBS;
   });
@@ -550,13 +555,14 @@ function openEdit(expense){
   showScreen('add-screen');
 }
 
-// two-tier expense-for chips: level 1 = category, level 2 = sub-items
+// two-tier expense-for chips: level 1 = categories (from Expensed config), level 2 = subcategories
 function buildCatLevel1(selected){
   const wrap = $('cat-chips');
   if(!wrap) return;
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
-  CATEGORIES.forEach(c=>{
+  const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+  cats.forEach(c=>{
     const el = document.createElement('div');
     el.className = 'tile' + (c===selected ? ' on' : '');
     el.textContent = c;
