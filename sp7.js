@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.4';
+const APP_VER = 'v2.5.5';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -451,7 +451,11 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   // Recent list (filtered like hero)
   const recent = $('recent-list');
   recent.innerHTML = '';
-  const recentList = heroData.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,20);
+  const recentList = heroData.sort((a,b)=>{
+    const dateCmp = (b.date||'').localeCompare(a.date||'');
+    if(dateCmp !== 0) return dateCmp;
+    return (b.timestamp||0)-(a.timestamp||0);
+  }).slice(0,20);
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
@@ -747,7 +751,8 @@ $('btn-save').addEventListener('click',()=>{
 
   if(editTarget){
     // UPDATE MODE
-    const data = { category, amount, payment, notes };
+    const useDate = $('add-date').value;
+    const data = { category, amount, payment, notes, date: useDate };
     if(subCategory) data.subCategory = subCategory;
     updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
       lastCategory = category;
