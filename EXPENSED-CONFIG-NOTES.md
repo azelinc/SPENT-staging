@@ -32,11 +32,16 @@ A flat object keyed by category name. Each value is an array of sub-item strings
 
 **Read:** Any authenticated Firebase user can read it. SPENT reads it on each add-screen open.
 
+The object shown above is an example — **Expensed controls the category names and structure entirely.** SPENT dynamically reads all keys from `config/categorySubs` and renders them as level 1 chips. Whatever categories Expensed writes will appear in SPENT's "Expense for" field. Examples can be changed freely.
+
 ## Behavior
 
-- `"Others": []` — empty array means no sub-chips, skipping level 2 entirely.
-- Any category omitted from the object = no sub-chips (treated same as empty array).
-- Category keys must EXACTLY match the categories used by SPENT: `Food & Dining`, `Groceries`, `Transport`, `Shopping`, `Utilities`, `Entertainment`, `Health & Wellness`, `Home`, `Others`.
+- `"CategoryName": []` — empty array means no sub-chips for that category (selects category directly, skipping level 2).
+- Any category key with a non-empty array will show level 2 subcategory chips.
+- When user selects a subcategory, SPENT stores the expense as:
+  - `merchant`: `"CategoryName - SubCategoryName"` (e.g. `"Food & Drinks - Lunch"`)
+  - `category`: `"CategoryName"` (e.g. `"Food & Drinks"`)
+- Categories with no sub-chips store `merchant` as the free-text input and `category` as the category name.
 
 ## SPENT Fallback
 
