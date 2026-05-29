@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.2';
+const APP_VER = 'v2.5.3';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -586,7 +586,6 @@ function openAdd(preMerchant, preCategory){
   $('add-remarks').value = '';
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
-  $('add-remarks').value = '';
   selectedCat = preCategory || lastCategory || '';
   selectedSub = '';
   $('btn-save').textContent = 'Save';
@@ -617,7 +616,6 @@ function openEdit(expense){
   $('cat-detected').textContent = expense.category;
   $('add-date').value = expense.date || fmtDate(now());
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
-  $('add-remarks').value = expense.notes || '';
   $('add-remarks').value = expense.notes || '';
   selectedCat = expense.category || '';
   selectedSub = expense.subCategory || '';
