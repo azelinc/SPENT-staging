@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.6';
+const APP_VER = 'v2.5.7';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -694,10 +694,14 @@ function buildCatLevel1(selected){
       const subs = categorySubs && categorySubs[c];
       if(!subs || subs.length===0){
         // No sub-chips — just select category
+        selectedCat = c;
+        selectedSub = '';
         $('cat-detected').textContent = c;
         $('add-category').value = c;
         buildCatLevel1(c);
       }else{
+        selectedCat = c;
+        selectedSub = '';
         showCatLevel2(c, subs);
       }
     });
@@ -725,6 +729,8 @@ function showCatLevel2(cat, subs){
     el.className = 'tile';
     el.textContent = item;
     el.addEventListener('click',()=>{
+      selectedCat = cat;
+      selectedSub = item;
       const merchant = cat + ' - ' + item;
       $('add-merchant').value = merchant;
       $('cat-detected').textContent = cat;
@@ -769,7 +775,8 @@ $('btn-save').addEventListener('click',()=>{
       category, amount, payment, notes,
       date: fmtDate(now()),
       timestamp: ts,
-      status: 'pending'
+      status: 'pending',
+      type: 'expense'
     };
     if(subCategory) expense.subCategory = subCategory;
 
