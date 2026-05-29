@@ -76,6 +76,7 @@ let authReady = false;
 let summaryFilter = 'both';
 let isSubAccount = false;
 let editTarget = null;    // { uid, id } when editing
+let lastMerchant = '';
 let lastCategory = '';
 let lastSubCategory = '';
 let lastPayment = 'Cash';
