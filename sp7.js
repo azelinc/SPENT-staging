@@ -18,6 +18,7 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 const APP_VER = 'v2.5.0';
+const APP_VER = 'v2.5.1';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -48,19 +49,24 @@ const CAT_MAP = {
   'health & wellness': ['pharmacy','clinic','hospital','dental','physio','gym','fitness','yoga','pilates','saloon','barber','spa','massage','supplement','vitamin','medical','doktor','ubat'],
   'home': ['mortgage','rent','renovation','furniture','cleaning','laundry','repair','plumber','electrician','contractor','security','alarm','cctv','garden','taman','rumah']
 };
+const DEFAULT_SUBCATEGORIES = {
+  'Food & Dining': ['Lunch','Dinner','Breakfast','Snack','Drinks'],
+  'Groceries': ['Weekly','Top-up','Bulk'],
+  'Transport': ['Fuel','Toll','Parking','Ride'],
+  'Shopping': ['Clothing','Electronics','Home','Personal'],
+  'Utilities': ['Electric','Water','Internet','Mobile'],
+  'Entertainment': ['Streaming','Movies','Games','Travel'],
+  'Health & Wellness': ['Medical','Dental','Gym','Personal Care'],
+  'Home': ['Rent','Repair','Cleaning','Decor'],
+  'Others': []
+};
 const QUICK_TILES = [
-  { merchant: 'Grab', category: 'Transport' },
-  { merchant: 'Shell', category: 'Transport' },
-  { merchant: '99 Speedmart', category: 'Groceries' },
-  { merchant: 'Shopee', category: 'Shopping' },
-  { merchant: 'Foodpanda', category: 'Food & Dining' },
-  { merchant: 'Tealive', category: 'Food & Dining' },
-  { merchant: 'Jaya Grocer', category: 'Groceries' },
-  { merchant: 'TNB', category: 'Utilities' },
-  { merchant: 'Unifi', category: 'Utilities' },
-  { merchant: 'Netflix', category: 'Entertainment' },
-  { merchant: 'Mamak', category: 'Food & Dining' },
-  { merchant: 'Petronas', category: 'Transport' }
+  { category: 'Food & Dining' },
+  { category: 'Groceries' },
+  { category: 'Transport' },
+  { category: 'Shopping' },
+  { category: 'Utilities' },
+  { category: 'Entertainment' }
 ];
 
 /* ─── STATE ─── */
@@ -71,8 +77,11 @@ let authReady = false;
 let summaryFilter = 'both';
 let isSubAccount = false;
 let editTarget = null;    // { uid, id } when editing
-let lastMerchant = '';
+let lastCategory = '';
+let lastSubCategory = '';
 let lastPayment = 'Cash';
+let selectedCat = '';
+let selectedSub = '';
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -404,8 +413,8 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
     });
   }
   
-  const todaySum = heroData.filter(e=>e.date===today).reduce((a,e)=>a+e.amount,0);
-  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix)).reduce((a,e)=>a+e.amount,0);
+  const todaySum = heroData.filter(e=>e.date===today && e.type!=='income').reduce((a,e)=>a+e.amount,0);
+  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix) && e.type!=='income').reduce((a,e)=>a+e.amount,0);
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
 
@@ -469,11 +478,12 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
           <div class="item-name-row">
             <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
             ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
+            ${e.type === 'income' ? '<span class="item-income-tag">Income</span>' : ''}
             ${inlineActions}
           </div>
           <span class="item-meta">${e.payment || 'Cash'} · ${e.date}</span>
         </div>
-        <span class="item-amount">${fmtMoney(e.amount)}</span>
+        <span class="item-amount${e.type==='income' ? ' income' : ''}">${e.type==='income' ? '+' : ''}${fmtMoney(e.amount)}</span>
       `;
       // Tap to edit
       if(canEdit){
@@ -505,7 +515,61 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
 $('btn-add').addEventListener('click',()=>openAdd());
 $('btn-add-back').addEventListener('click',()=>{ showScreen('dash-screen'); refreshDash(); });
 
-function openAdd(preMerchant,preCategory){
+/* ── Category chip system ── */
+function getSubs(cat){
+  return DEFAULT_SUBCATEGORIES[cat] || [];
+}
+
+function buildCatChips(selected){
+  const wrap = $('cat-chips');
+  wrap.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const el = document.createElement('div');
+    el.className = cat === selected ? 'tile on' : 'tile';
+    el.textContent = cat;
+    el.addEventListener('click', () => {
+      const subs = getSubs(cat);
+      if(subs.length > 0){
+        selectedCat = cat;
+        selectedSub = '';
+        buildSubChips(cat, '');
+        $('subcat-field').classList.remove('hidden');
+      } else {
+        selectedCat = cat;
+        selectedSub = '';
+        $('subcat-field').classList.add('hidden');
+        buildCatChips(cat);
+      }
+    });
+    wrap.appendChild(el);
+  });
+}
+
+function buildSubChips(cat, selected){
+  const wrap = $('sub-chips');
+  const back = $('cat-back');
+  wrap.innerHTML = '';
+  const subs = getSubs(cat);
+  back.style.display = 'block';
+  back.onclick = () => {
+    selectedCat = '';
+    selectedSub = '';
+    $('subcat-field').classList.add('hidden');
+    buildCatChips('');
+  };
+  subs.forEach(sub => {
+    const el = document.createElement('div');
+    el.className = sub === selected ? 'tile on' : 'tile';
+    el.textContent = sub;
+    el.addEventListener('click', () => {
+      selectedSub = sub;
+      buildSubChips(cat, sub);
+    });
+    wrap.appendChild(el);
+  });
+}
+
+function openAdd(preCat, preSub){
   editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
@@ -522,6 +586,18 @@ function openAdd(preMerchant,preCategory){
   $('add-remarks').value = '';
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
+  $('add-remarks').value = '';
+  selectedCat = preCat || lastCategory || '';
+  selectedSub = preSub || lastSubCategory || '';
+  $('btn-save').textContent = 'Save';
+  $('btn-delete').classList.add('hidden');
+  buildCatChips(selectedCat);
+  if(selectedCat && getSubs(selectedCat).length > 0){
+    $('subcat-field').classList.remove('hidden');
+    buildSubChips(selectedCat, selectedSub);
+  } else {
+    $('subcat-field').classList.add('hidden');
+  }
   loadPaymentMethods(currentUser.uid).then(methods=>{
     const payment = lastPayment || methods[0];
     buildPayChips(methods, payment);
@@ -531,7 +607,6 @@ function openAdd(preMerchant,preCategory){
   });
   buildSuggest();
   showScreen('add-screen');
-  if(!merchant) setTimeout(()=>$('add-merchant').focus(),50);
 }
 
 function openEdit(expense){
@@ -543,8 +618,18 @@ function openEdit(expense){
   $('add-date').value = expense.date || fmtDate(now());
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
   $('add-remarks').value = expense.notes || '';
+  $('add-remarks').value = expense.notes || '';
+  selectedCat = expense.category || '';
+  selectedSub = expense.subCategory || '';
   $('btn-save').textContent = 'Update';
   $('btn-delete').classList.remove('hidden');
+  buildCatChips(selectedCat);
+  if(selectedCat && getSubs(selectedCat).length > 0){
+    $('subcat-field').classList.remove('hidden');
+    buildSubChips(selectedCat, selectedSub);
+  } else {
+    $('subcat-field').classList.add('hidden');
+  }
   loadPaymentMethods(expense._uid).then(methods=>{
     const payment = expense.payment || methods[0];
     buildPayChips(methods, payment);
@@ -617,6 +702,56 @@ function showCatLevel2(cat, subs){
     wrap.appendChild(el);
   });
 }
+  showScreen('add-screen');
+}
+
+// save / update
+$('btn-save').addEventListener('click',()=>{
+  const category = selectedCat;
+  const subCategory = selectedSub;
+  const amount=parseMoney(amountStr);
+  const payment = $('add-payment').value || 'Cash';
+  const notes = $('add-remarks').value.trim();
+  if(!category){ alert('Select a category'); return; }
+  if(amount<=0){ alert('Enter amount'); return; }
+
+  if(editTarget){
+    // UPDATE MODE
+    const data = { category, amount, payment, notes };
+    if(subCategory) data.subCategory = subCategory;
+    updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
+      lastCategory = category;
+      lastSubCategory = subCategory;
+      lastPayment = payment;
+      editTarget = null;
+      showScreen('dash-screen');
+      refreshDash();
+    });
+  }else{
+    // CREATE MODE
+    const ts = Date.now();
+    const expense = {
+      category, amount, payment, notes,
+      date: fmtDate(now()),
+      timestamp: ts,
+      status: 'pending'
+    };
+    if(subCategory) expense.subCategory = subCategory;
+
+    loadSettings(currentUser.uid).then(settings=>{
+      if(!settings.ownerUid){
+        expense.status = 'approved';
+      }
+      saveExpense(currentUser.uid, expense).then(()=>{
+        lastCategory = category;
+        lastSubCategory = subCategory;
+        lastPayment = payment;
+        showScreen('dash-screen');
+        refreshDash();
+      });
+    });
+  }
+});
 
 // numpad
 document.querySelectorAll('.numpad button').forEach(btn=>{
