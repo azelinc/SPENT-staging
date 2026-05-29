@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.5';
+const APP_VER = 'v2.5.6';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -488,7 +488,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
           </div>
           <span class="item-meta">${e.payment || 'Cash'} · ${e.date}</span>
         </div>
-        <span class="item-amount${e.type==='income' ? ' income' : ''}">${e.type==='income' ? '+' : ''}${fmtMoney(e.amount)}</span>
+        <span class="item-amount${e.type==='income' ? ' income' : ''}">${e.type==='income' ? '**' : fmtMoney(e.amount)}</span>
       `;
       // Tap to edit
       if(canEdit){
