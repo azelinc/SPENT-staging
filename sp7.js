@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.8';
+const APP_VER = 'v2.4.9';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -518,6 +518,7 @@ function openAdd(preMerchant,preCategory){
   $('date-detected').textContent = fmtDateDisplay(todayIso);
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
+  $('add-remarks').value = '';
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
   loadPaymentMethods(currentUser.uid).then(methods=>{
@@ -540,6 +541,7 @@ function openEdit(expense){
   $('cat-detected').textContent = expense.category;
   $('add-date').value = expense.date || fmtDate(now());
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
+  $('add-remarks').value = expense.notes || '';
   $('btn-save').textContent = 'Update';
   $('btn-delete').classList.remove('hidden');
   loadPaymentMethods(expense._uid).then(methods=>{
@@ -714,12 +716,13 @@ $('btn-save').addEventListener('click',()=>{
   const category = $('cat-detected').textContent || detectCategory(merchant);
   const payment = $('add-payment').value || 'Cash';
   const useDate = $('add-date').value || fmtDate(now());
+  const notes = $('add-remarks').value.trim();
   if(!merchant){ alert('Enter merchant'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
 
   if(editTarget){
     // UPDATE MODE
-    const data = { merchant, amount, category, payment, date: useDate };
+    const data = { merchant, amount, category, payment, date: useDate, notes };
     updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
       lastMerchant = merchant;
       lastPayment = payment;
@@ -731,7 +734,7 @@ $('btn-save').addEventListener('click',()=>{
     // CREATE MODE
     const ts = Date.now();
     const expense = {
-      merchant, amount, category, payment,
+      merchant, amount, category, payment, notes,
       date: useDate,
       timestamp: ts,
       status: 'pending'

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.4.8 -->
+<!-- v2.4.9 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -82,10 +82,16 @@
     </header>
 
     <div class="add-body">
-      <div class="field">
-        <label>Date</label>
-        <div id="date-detected" class="cat-badge"></div>
-        <input type="date" id="add-date" class="hidden">
+      <div class="field-row">
+        <div class="field-half">
+          <label>Date</label>
+          <div id="date-detected" class="cat-badge"></div>
+          <input type="date" id="add-date" class="hidden">
+        </div>
+        <div class="field-half">
+          <label>Remarks</label>
+          <input type="text" id="add-remarks" placeholder="Note..." autocomplete="off">
+        </div>
       </div>
 
       <div class="field">
