@@ -568,7 +568,7 @@ function buildSubChips(cat, selected){
   });
 }
 
-function openAdd(preCat, preSub){
+function openAdd(preMerchant, preCategory){
   editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
