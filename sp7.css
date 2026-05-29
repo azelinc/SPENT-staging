@@ -201,6 +201,10 @@ html, body {
   color: var(--success);
 }
 
+.amount-display.income {
+  color: var(--success);
+}
+
 .item-income-tag {
   font-size: 0.65rem;
   color: var(--success);

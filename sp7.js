@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.5.3';
+const APP_VER = 'v2.5.4';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -82,6 +82,7 @@ let lastSubCategory = '';
 let lastPayment = 'Cash';
 let selectedCat = '';
 let selectedSub = '';
+let isIncomeEdit = false;
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -570,6 +571,10 @@ function buildSubChips(cat, selected){
 }
 
 function openAdd(preMerchant, preCategory){
+  isIncomeEdit = false;
+  document.querySelector('.add-title').textContent = 'New Expense';
+  $('amount-display').classList.remove('income');
+  $('cat-chips').classList.remove('hidden');
   editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
@@ -612,6 +617,35 @@ function openEdit(expense){
   editTarget = { uid: expense._uid, id: expense.id };
   amountStr = String(expense.amount);
   $('amount-display').textContent = expense.amount.toFixed(2);
+
+  // ── INCOME MODE ──
+  if(expense.type === 'income'){
+    isIncomeEdit = true;
+    document.querySelector('.add-title').textContent = 'Edit Income';
+    $('add-merchant').value = expense.category + (expense.subCategory ? ' - ' + expense.subCategory : '');
+    $('cat-chips').classList.add('hidden');
+    $('sub-chips').classList.add('hidden');
+    $('subcat-field').classList.add('hidden');
+    $('amount-display').classList.add('income');
+    selectedCat = expense.category || '';
+    selectedSub = expense.subCategory || '';
+    $('add-date').value = expense.date || fmtDate(now());
+    $('date-detected').textContent = fmtDateDisplay($('add-date').value);
+    $('add-remarks').value = expense.notes || '';
+    $('btn-save').textContent = 'Update';
+    $('btn-delete').classList.remove('hidden');
+    loadPaymentMethods(expense._uid).then(methods=>{
+      const payment = expense.payment || methods[0];
+      buildPayChips(methods, payment);
+    });
+    showScreen('add-screen');
+    return;
+  }
+
+  // ── EXPENSE MODE ──
+  isIncomeEdit = false;
+  document.querySelector('.add-title').textContent = 'New Expense';
+  $('amount-display').classList.remove('income');
   $('add-merchant').value = expense.merchant;
   $('cat-detected').textContent = expense.category;
   $('add-date').value = expense.date || fmtDate(now());
