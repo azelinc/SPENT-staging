@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.4';
+const APP_VER = 'v2.4.5';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
