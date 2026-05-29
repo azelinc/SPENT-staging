@@ -575,7 +575,7 @@ html, body {
   bottom: 4px;
   right: 8px;
   font-size: 0.6rem;
-  color: var(--text-muted);
+  color: var(--muted);
   opacity: 0.5;
   pointer-events: none;
   z-index: 999;
