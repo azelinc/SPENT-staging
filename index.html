@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.4.5 -->
+<!-- v2.4.6 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -92,14 +92,16 @@
         <label>Expense for</label>
         <input type="text" id="add-merchant" placeholder="e.g. Shell, Mamak, Shopee" autocomplete="off">
         <div id="merchant-suggest" class="suggest"></div>
+        <div id="merchant-chips" class="tiles"></div>
       </div>
 
       <div class="field">
         <label>Category</label>
-        <div id="cat-detected" class="cat-badge">Others</div>
+        <div id="cat-detected" class="cat-badge hidden"></div>
+        <div id="cat-chips" class="tiles"></div>
         <select id="add-category" class="hidden">
-          <option>Food</option><option>Transport</option><option>Shopping</option>
-          <option>Utilities</option><option>Entertainment</option><option>Others</option>
+          <option>Food & Dining</option><option>Groceries</option><option>Transport</option><option>Shopping</option>
+          <option>Utilities</option><option>Entertainment</option><option>Health & Wellness</option><option>Home</option><option>Others</option>
         </select>
       </div>
 
