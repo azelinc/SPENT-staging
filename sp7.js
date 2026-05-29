@@ -594,7 +594,7 @@ $('add-category').addEventListener('change',()=>{
 $('btn-save').addEventListener('click',()=>{
   const merchant=$('add-merchant').value.trim();
   const amount=parseMoney(amountStr);
-  const category = detectCategory(merchant);
+  const category = $('cat-detected').textContent || detectCategory(merchant);
   const payment = $('add-payment').value || 'Cash';
   if(!merchant){ alert('Enter merchant'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
