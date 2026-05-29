@@ -701,8 +701,6 @@ function showCatLevel2(cat, subs){
     wrap.appendChild(el);
   });
 }
-  showScreen('add-screen');
-}
 
 // save / update
 $('btn-save').addEventListener('click',()=>{
