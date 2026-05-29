@@ -385,7 +385,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
             <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
             ${inlineActions}
           </div>
-          <span class="item-meta">${e.category} · ${e.payment || 'Cash'} · ${e.date}</span>
+          <span class="item-meta">${e.payment || 'Cash'} · ${e.date}</span>
         </div>
         <span class="item-amount">${fmtMoney(e.amount)}</span>
       `;
