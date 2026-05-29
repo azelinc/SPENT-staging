@@ -548,6 +548,24 @@ html, body {
   color: var(--accent);
 }
 
+.back-pill {
+  background: var(--surface);
+  border: 1px dashed var(--muted);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  color: var(--muted);
+  transition: border-color 0.15s;
+}
+
+.back-pill:hover, .back-pill:active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 /* Bill modal inputs */
 .bill-input {
   background: var(--surface);

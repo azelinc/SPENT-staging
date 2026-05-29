@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.4.6';
+const APP_VER = 'v2.4.7';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -25,6 +25,18 @@ const CATEGORIES = [
   'Food & Dining','Groceries','Transport','Shopping',
   'Utilities','Entertainment','Health & Wellness','Home','Others'
 ];
+const DEFAULT_CATEGORY_SUBS = {
+  'Food & Dining': ['Lunch', 'Dinner', 'Supper', 'Snack', 'Breakfast', 'Teh', 'Kopi'],
+  'Groceries': ['Weekly Top-up', 'Bulk', 'Emergency', '99 Speedmart'],
+  'Transport': ['Fuel', 'Toll', 'Parking', 'Grab', 'Public', 'JPJ'],
+  'Shopping': ['Online', 'Mall', 'Essentials', 'Big Purchase'],
+  'Utilities': ['TNB', 'Unifi', 'Water', 'Phone', 'Astro'],
+  'Entertainment': ['Streaming', 'Gaming', 'Cinema', 'Outing'],
+  'Health & Wellness': ['Clinic', 'Pharmacy', 'Gym', 'Supplement'],
+  'Home': ['Maintenance', 'Renovation', 'Furniture', 'Cleaning'],
+  'Others': []
+};
+let categorySubs = null;
 const DEFAULT_PAYMENT_METHODS = ['Cash', 'Card', 'QR', 'Bank Transfer'];
 const CAT_MAP = {
   'food & dining': ['mamak','kfc','mcd','tealive','starbucks','grabfood','foodpanda','nando','pizza','sushi','ramen','nasik','warung','restoran','cafe','kopitiam','dimsum','bakery','7eats','domino'],
@@ -79,6 +91,14 @@ function detectCategory(merchant){
     if(keywords.some(k=>m.includes(k))) return cat.replace(/\b\w/g,l=>l.toUpperCase()).replace('&',' & ').replace('N Go','N Go');
   }
   return 'Others';
+}
+
+function loadCategorySubs(){
+  return db.ref('config/categorySubs').once('value').then(s=>{
+    categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
+  }).catch(()=>{
+    categorySubs = DEFAULT_CATEGORY_SUBS;
+  });
 }
 
 /* ─── NAV ─── */
@@ -487,21 +507,20 @@ function openAdd(preMerchant,preCategory){
   $('add-merchant').value = merchant;
   const cat = preCategory || (merchant ? detectCategory(merchant) : 'Others');
   $('cat-detected').textContent=cat;
+  $('add-category').value = cat;
   const todayIso = fmtDate(now());
   $('add-date').value = todayIso;
   $('date-detected').textContent = fmtDateDisplay(todayIso);
-  $('add-category').value = cat;
-  $('add-category').classList.add('hidden');
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
+  // Hide level 2, show level 1
+  $('sub-chips').classList.add('hidden');
   loadPaymentMethods(currentUser.uid).then(methods=>{
     const payment = lastPayment || methods[0];
     buildPayChips(methods, payment);
   });
-  // Load expenses for merchant & category chips
-  loadExpenses(currentUser.uid).then(expenses=>{
-    buildMerchantChips(expenses);
-    buildCatChips(expenses, cat);
+  loadCategorySubs().then(()=>{
+    buildCatLevel1(cat);
   });
   buildSuggest();
   showScreen('add-screen');
@@ -522,66 +541,69 @@ function openEdit(expense){
     const payment = expense.payment || methods[0];
     buildPayChips(methods, payment);
   });
-  // Load expenses for chips
-  loadExpenses(expense._uid).then(expenses=>{
-    buildMerchantChips(expenses);
-    buildCatChips(expenses, expense.category);
+  // Hide level 2
+  $('sub-chips').classList.add('hidden');
+  loadCategorySubs().then(()=>{
+    buildCatLevel1(expense.category);
   });
   buildSuggest();
   showScreen('add-screen');
 }
 
-// merchant chips (frequently used)
-function buildMerchantChips(expenses){
-  const wrap = $('merchant-chips');
+// two-tier expense-for chips: level 1 = category, level 2 = sub-items
+function buildCatLevel1(selected){
+  const wrap = $('cat-chips');
   if(!wrap) return;
   wrap.innerHTML = '';
-  const freq = {};
-  expenses.forEach(e=>{ freq[e.merchant]=(freq[e.merchant]||0)+1; });
-  const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([m])=>m);
-  if(top.length===0) return;
-  top.forEach(m=>{
+  wrap.classList.remove('hidden');
+  CATEGORIES.forEach(c=>{
     const el = document.createElement('div');
-    el.className = 'tile';
-    el.textContent = m;
+    el.className = 'tile' + (c===selected ? ' on' : '');
+    el.textContent = c;
     el.addEventListener('click',()=>{
-      $('add-merchant').value = m;
-      const cat = detectCategory(m);
-      $('cat-detected').textContent = cat;
-      $('add-category').value = cat;
-      buildSuggest();
-      // rebuild cat chips with new category selected
-      loadExpenses(currentUser.uid).then(ex=>buildCatChips(ex, cat));
+      const subs = categorySubs && categorySubs[c];
+      if(!subs || subs.length===0){
+        // No sub-chips — just select category
+        $('cat-detected').textContent = c;
+        $('add-category').value = c;
+        buildCatLevel1(c);
+      }else{
+        showCatLevel2(c, subs);
+      }
     });
     wrap.appendChild(el);
   });
 }
 
-// category chips (frequently used + Others dropdown)
-function buildCatChips(expenses, selected){
-  const wrap = $('cat-chips');
-  if(!wrap) return;
+function showCatLevel2(cat, subs){
+  $('cat-chips').classList.add('hidden');
+  const wrap = $('sub-chips');
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
-  const freq = {};
-  expenses.forEach(e=>{ freq[e.category]=(freq[e.category]||0)+1; });
-  const sorted = Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([c])=>c);
-  const top = [...new Set([...sorted, ...CATEGORIES])].filter(c=>c!=='Others').slice(0,5);
-  top.push('Others');
-  top.forEach(c=>{
+  // Back pill
+  const back = document.createElement('div');
+  back.className = 'tile back-pill';
+  back.textContent = '← ' + cat;
+  back.addEventListener('click',()=>{
+    wrap.classList.add('hidden');
+    $('cat-chips').classList.remove('hidden');
+  });
+  wrap.appendChild(back);
+  // Sub-item chips
+  subs.forEach(item=>{
     const el = document.createElement('div');
-    el.className = 'tile' + (c===selected ? ' on' : '');
-    el.textContent = c;
+    el.className = 'tile';
+    el.textContent = item;
     el.addEventListener('click',()=>{
-      if(c==='Others'){
-        wrap.classList.add('hidden');
-        $('add-category').classList.remove('hidden');
-        $('add-category').focus();
-      }else{
-        $('cat-detected').textContent = c;
-        $('add-category').value = c;
-        buildCatChips(expenses, c);
-      }
+      const merchant = cat + ' - ' + item;
+      $('add-merchant').value = merchant;
+      $('cat-detected').textContent = cat;
+      $('add-category').value = cat;
+      buildSuggest();
+      // Back to level 1 with selection highlighted
+      wrap.classList.add('hidden');
+      $('cat-chips').classList.remove('hidden');
+      buildCatLevel1(cat);
     });
     wrap.appendChild(el);
   });
@@ -611,10 +633,17 @@ $('add-merchant').addEventListener('input',()=>{
   const cat=detectCategory($('add-merchant').value);
   $('cat-detected').textContent=cat;
   $('add-category').value=cat;
-  // update cat chip highlight if chips exist
-  const chips = $('cat-chips');
-  if(chips && chips.innerHTML){
-    chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat));
+  // If user types while in level 2, go back to level 1
+  if(!$('sub-chips').classList.contains('hidden')){
+    $('sub-chips').classList.add('hidden');
+    $('cat-chips').classList.remove('hidden');
+    buildCatLevel1(cat);
+  }else{
+    // Update cat chip highlight
+    const chips=$('cat-chips');
+    if(chips && chips.innerHTML){
+      chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat));
+    }
   }
 });
 
@@ -631,7 +660,7 @@ function buildSuggest(){
     box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
   });
 }
-window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); const cat=detectCategory(m); $('cat-detected').textContent=cat; $('add-category').value=cat; const chips=$('cat-chips'); if(chips&&chips.innerHTML){ chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat)); } };
+window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); const cat=detectCategory(m); $('cat-detected').textContent=cat; $('add-category').value=cat; const chips=$('cat-chips'); if(chips&&chips.innerHTML){ chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat)); } if(!$('sub-chips').classList.contains('hidden')){ $('sub-chips').classList.add('hidden'); $('cat-chips').classList.remove('hidden'); } };
 
 // payment method chips
 let currentPayMethods = DEFAULT_PAYMENT_METHODS.slice();
@@ -659,21 +688,6 @@ function setPayChip(val){
     $('add-payment').value = val;
   }
 }
-
-// category override (kept for hidden field, merchant still auto-detects)
-$('cat-detected').addEventListener('click',()=>{
-  $('cat-detected').classList.toggle('hidden');
-  $('add-category').classList.toggle('hidden');
-  if(!$('add-category').classList.contains('hidden')) $('add-category').focus();
-});
-$('add-category').addEventListener('change',()=>{
-  const val = $('add-category').value;
-  $('cat-detected').textContent = val;
-  $('add-category').classList.add('hidden');
-  $('cat-chips').classList.remove('hidden');
-  // rebuild chips with dropdown selection highlighted
-  loadExpenses(currentUser.uid).then(ex=>buildCatChips(ex, val));
-});
 
 // date override (tap badge to change)
 $('date-detected').addEventListener('click',()=>{
