@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.6.0';
+const APP_VER = 'v2.6.1';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -498,7 +498,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       item.innerHTML = `
         <div class="item-left">
           <div class="item-name-row">
-            <span class="item-name">${esc(e.merchant)}${tag}${statusLabel}</span>
+            <span class="item-name">${esc(e.merchant || (e.category + (e.subCategory ? ' - ' + e.subCategory : '')))}${tag}${statusLabel}</span>
             ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
             ${e.type === 'income' ? '<span class="item-income-tag">Income</span>' : ''}
             ${inlineActions}
@@ -1021,7 +1021,7 @@ function renderReview(){
         item.className = 'item review-item';
         item.innerHTML = `
           <div class="item-left">
-            <span class="item-name">${esc(e.merchant)} <span class="partner-tag">${esc(e._user)}</span></span>
+            <span class="item-name">${esc(e.merchant || (e.category + (e.subCategory ? ' - ' + e.subCategory : '')))} <span class="partner-tag">${esc(e._user)}</span></span>
             <span class="item-meta">${e.category} · ${e.date}</span>
           </div>
           <span class="item-amount">${fmtMoney(e.amount)}</span>
