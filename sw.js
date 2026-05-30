@@ -1,9 +1,9 @@
-const CACHE = 'spent-v63';
+const CACHE = 'spent-v64';
 const FILES = [
   '/',
   '/index.html',
-'/sp7.css?v=44'
-'/sp7.js?v=64'
+'/sp7.css?v=45'
+'/sp7.js?v=65'
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
