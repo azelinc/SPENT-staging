@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.6.3';
+const APP_VER = 'v2.6.4';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -218,6 +218,22 @@ function saveExpense(uid, expense){
 }
 function updateExpenseStatus(uid, expId, status){
   return expRef(uid).child(expId).update({ status });
+}
+function copyExpenseToOwner(partnerUid, expId, partnerExpense){
+  // Copy partner's approved expense into current user's UID
+  const key = expRef(currentUser.uid).push().key;
+  return expRef(currentUser.uid).child(key).set({
+    category: partnerExpense.category,
+    subCategory: partnerExpense.subCategory || null,
+    amount: partnerExpense.amount,
+    payment: partnerExpense.payment || 'Cash',
+    date: partnerExpense.date,
+    notes: partnerExpense.notes || '',
+    type: partnerExpense.type || 'expense',
+    timestamp: Date.now(),
+    status: 'approved',
+    _src: partnerUid + '/' + expId
+  });
 }
 function loadExpenses(uid){
   return expRef(uid).once('value').then(s=>{
@@ -492,7 +508,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       // Build inline actions row
       let inlineActions = '';
       if(isOwner && e.status === 'pending'){
-        inlineActions = `<span class="inline-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">✓ Approve</span>`;
+        inlineActions = `<span class="inline-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}" data-category="${esc(e.category)}" data-amount="${e.amount}" data-date="${esc(e.date||'')}" data-notes="${esc(e.notes||'')}" data-payment="${esc(e.payment||'Cash')}" data-type="${esc(e.type||'expense')}" data-subcategory="${esc(e.subCategory||'')}" data-merchant="${esc(e.merchant||'')}">✓ Approve</span>`;
       }
 
       item.innerHTML = `
@@ -524,6 +540,18 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
         ev.stopPropagation();
         const id=btn.dataset.id, uid=btn.dataset.uid;
         updateExpenseStatus(uid, id, 'approved').then(()=>{
+          // Copy to current user's UID so it appears in Invested
+          const expense = {
+            category: btn.dataset.category,
+            subCategory: btn.dataset.subcategory || null,
+            amount: parseFloat(btn.dataset.amount),
+            date: btn.dataset.date,
+            notes: btn.dataset.notes,
+            payment: btn.dataset.payment,
+            type: btn.dataset.type || 'expense'
+          };
+          return copyExpenseToOwner(uid, id, expense);
+        }).then(()=>{
           refreshDash();
           refreshReviewBadge();
         });
@@ -982,7 +1010,7 @@ function renderReview(){
           </div>
           <span class="item-amount">${fmtMoney(e.amount)}</span>
           <div class="review-actions">
-            <button class="btn-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">Approve</button>
+            <button class="btn-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}" data-category="${esc(e.category)}" data-amount="${e.amount}" data-date="${esc(e.date||'')}" data-notes="${esc(e.notes||'')}" data-payment="${esc(e.payment||'Cash')}" data-type="${esc(e.type||'expense')}" data-subcategory="${esc(e.subCategory||'')}">Approve</button>
             <button class="btn-reject" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">Reject</button>
           </div>
         `;
@@ -992,7 +1020,18 @@ function renderReview(){
       list.querySelectorAll('.btn-approve').forEach(btn=>{
         btn.addEventListener('click',()=>{
           const id=btn.dataset.id, uid=btn.dataset.uid;
-          updateExpenseStatus(uid, id, 'approved').then(()=>{ renderReview(); refreshReviewBadge(); refreshDash(); });
+          updateExpenseStatus(uid, id, 'approved').then(()=>{
+            const expense = {
+              category: btn.dataset.category,
+              subCategory: btn.dataset.subcategory || null,
+              amount: parseFloat(btn.dataset.amount),
+              date: btn.dataset.date,
+              notes: btn.dataset.notes,
+              payment: btn.dataset.payment,
+              type: btn.dataset.type || 'expense'
+            };
+            return copyExpenseToOwner(uid, id, expense);
+          }).then(()=>{ renderReview(); refreshReviewBadge(); refreshDash(); });
         });
       });
       list.querySelectorAll('.btn-reject').forEach(btn=>{
