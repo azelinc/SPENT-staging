@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.6.1';
+const APP_VER = 'v2.6.2';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -667,7 +667,7 @@ function openEdit(expense){
   isIncomeEdit = false;
   document.querySelector('.add-title').textContent = 'New Expense';
   $('amount-display').classList.remove('income');
-  $('add-merchant').value = expense.merchant;
+  $('add-merchant').value = expense.merchant || (expense.category + (expense.subCategory ? ' - ' + expense.subCategory : ''));
   $('cat-detected').textContent = expense.category;
   $('add-date').value = expense.date || fmtDate(now());
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
