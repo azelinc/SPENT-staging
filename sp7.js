@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.6.5';
+const APP_VER = 'v2.7.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -47,16 +47,6 @@ const DEFAULT_ACCOUNTS = {
   'Others': '#94a3b8'
 };
 let accountColors = {}; // loaded from Firebase per-user
-const CAT_MAP = {
-  'food & dining': ['mamak','kfc','mcd','tealive','starbucks','grabfood','foodpanda','nando','pizza','sushi','ramen','nasik','warung','restoran','cafe','kopitiam','dimsum','bakery','7eats','domino'],
-  'groceries': ['99 speedmart','aeon','jaya grocer','village grocer','lotus','tesco','mydin','guardian','watson','ekono','mr diy','shell select','petronas mesra','7-eleven','family mart','grocer'],
-  'transport': ['grab','shell','petron','petronas','caltex','bp','bhp','touch n go','toll','parking','bas','ktm','lrt','mrt','flight','airasia','mas','firefly','fuel','minyak','petrol','diesel','uber','inDriver'],
-  'shopping': ['shopee','lazada','tiktok shop','zalora','h&m','uniqlo','padini','cotton on','nike','adidas','switch','machine','apple','samsung',' Courts','harvey','ikea','mr diy','laptop','phone','watch'],
-  'utilities': ['tnb','syabas','indah water','astro','unifi','maxis','digi','celcom','hotlink','umobile','yes','time','tm','electric','water','internet','broadband','phone bill','billplz','utility'],
-  'entertainment': ['netflix','spotify','youtube','disney','hbo','prime video','cinema','tickets','concert','gaming','steam','playstation','xbox','bowling','ktv','karaoke','arcade','zoo','aquaria','travel','hotel','agoda','booking','airbnb','trip','cuti'],
-  'health & wellness': ['pharmacy','clinic','hospital','dental','physio','gym','fitness','yoga','pilates','saloon','barber','spa','massage','supplement','vitamin','medical','doktor','ubat'],
-  'home': ['mortgage','rent','renovation','furniture','cleaning','laundry','repair','plumber','electrician','contractor','security','alarm','cctv','garden','taman','rumah']
-};
 const DEFAULT_SUBCATEGORIES = {
   'Food & Dining': ['Lunch','Dinner','Breakfast','Snack','Drinks'],
   'Groceries': ['Weekly','Top-up','Bulk'],
@@ -85,7 +75,6 @@ let authReady = false;
 let summaryFilter = 'both';
 let isSubAccount = false;
 let editTarget = null;    // { uid, id } when editing
-let lastMerchant = '';
 let lastCategory = '';
 let lastSubCategory = '';
 let lastPayment = 'Cash';
@@ -104,14 +93,6 @@ function fmtDateDisplay(iso){
 function fmtMoney(n){ return 'RM '+n.toFixed(2); }
 function parseMoney(s){ const v=parseFloat(s); return isNaN(v)?0:v; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function detectCategory(merchant){
-  const m=merchant.toLowerCase();
-  for(const[cat,keywords] of Object.entries(CAT_MAP)){
-    if(keywords.some(k=>m.includes(k))) return cat.replace(/\b\w/g,l=>l.toUpperCase()).replace('&',' & ').replace('N Go','N Go');
-  }
-  return 'Others';
-}
-
 function loadCategorySubs(){
   return db.ref('config/categorySubs').once('value').then(s=>{
     categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
@@ -225,7 +206,6 @@ function copyExpenseToOwner(partnerUid, expId, partnerExpense){
   return expRef(currentUser.uid).child(key).set({
     category: partnerExpense.category,
     subCategory: partnerExpense.subCategory || null,
-    merchant: partnerExpense.merchant || null,
     amount: partnerExpense.amount,
     payment: partnerExpense.payment || 'Cash',
     date: partnerExpense.date,
@@ -471,14 +451,17 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   const tiles = $('quick-tiles');
   tiles.innerHTML = '';
   const freq = {};
-  combined.forEach(e=>{ freq[e.merchant]=(freq[e.merchant]||0)+1; });
+  combined.forEach(e=>{ const k = e.category + (e.subCategory ? ' - ' + e.subCategory : ''); freq[k]=(freq[k]||0)+1; });
   const hist = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([m])=>m);
-  const toShow = [...new Set([...hist, ...QUICK_TILES.map(t=>t.merchant)])].slice(0,6);
+  const toShow = [...new Set([...hist, ...QUICK_TILES.map(t=>t.category)])].slice(0,6);
   toShow.forEach(m=>{
     const el = document.createElement('div');
     el.className = 'tile';
     el.textContent = m;
-    el.addEventListener('click',()=>openAdd(m,detectCategory(m)));
+    el.addEventListener('click',()=>{
+      const parts = m.split(' - ');
+      openAdd(parts[0], parts[1] || '');
+    });
     tiles.appendChild(el);
   });
 
@@ -515,7 +498,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       item.innerHTML = `
         <div class="item-left">
           <div class="item-name-row">
-            <span class="item-name">${esc(e.merchant || (e.category + (e.subCategory ? ' - ' + e.subCategory : '')))}${tag}${statusLabel}</span>
+            <span class="item-name">${esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''))}${tag}${statusLabel}</span>
             ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
             ${e.type === 'income' ? '<span class="item-income-tag">Income</span>' : ''}
             ${inlineActions}
@@ -612,7 +595,7 @@ function buildSubChips(cat, selected){
   });
 }
 
-function openAdd(preMerchant, preCategory){
+function openAdd(preCategory, preSubCategory){
   isIncomeEdit = false;
   document.querySelector('.add-title').textContent = 'New Expense';
   $('amount-display').classList.remove('income');
@@ -620,9 +603,8 @@ function openAdd(preMerchant, preCategory){
   editTarget = null;
   amountStr='';
   $('amount-display').textContent='0.00';
-  const merchant = preMerchant || lastMerchant || '';
-  $('add-merchant').value = merchant;
-  const cat = preCategory || (merchant ? detectCategory(merchant) : 'Others');
+  $('add-expense-for').value = '';
+  const cat = preCategory || lastCategory || '';
   $('cat-detected').textContent=cat;
   $('add-category').value = cat;
   const todayIso = fmtDate(now());
@@ -634,9 +616,7 @@ function openAdd(preMerchant, preCategory){
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
   selectedCat = preCategory || lastCategory || '';
-  selectedSub = '';
-  $('btn-save').textContent = 'Save';
-  $('btn-delete').classList.add('hidden');
+  selectedSub = preSubCategory || lastSubCategory || '';
   buildCatChips(selectedCat);
   if(selectedCat && getSubs(selectedCat).length > 0){
     $('subcat-field').classList.remove('hidden');
@@ -649,7 +629,7 @@ function openAdd(preMerchant, preCategory){
     buildPayChips(methods, payment);
   });
   loadCategorySubs().then(()=>{
-    buildCatLevel1(cat);
+    buildCatLevel1(cat || 'Others');
   });
   buildSuggest();
   showScreen('add-screen');
@@ -664,7 +644,7 @@ function openEdit(expense){
   if(expense.type === 'income'){
     isIncomeEdit = true;
     document.querySelector('.add-title').textContent = 'Edit Income';
-    $('add-merchant').value = expense.category + (expense.subCategory ? ' - ' + expense.subCategory : '');
+    $('add-expense-for').value = expense.category + (expense.subCategory ? ' - ' + expense.subCategory : '');
     $('cat-chips').classList.add('hidden');
     $('sub-chips').classList.add('hidden');
     $('subcat-field').classList.add('hidden');
@@ -688,7 +668,7 @@ function openEdit(expense){
   isIncomeEdit = false;
   document.querySelector('.add-title').textContent = 'New Expense';
   $('amount-display').classList.remove('income');
-  $('add-merchant').value = expense.merchant || (expense.category + (expense.subCategory ? ' - ' + expense.subCategory : ''));
+  $('add-expense-for').value = expense.category + (expense.subCategory ? ' - ' + expense.subCategory : '');
   $('cat-detected').textContent = expense.category;
   $('add-date').value = expense.date || fmtDate(now());
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
@@ -769,8 +749,7 @@ function showCatLevel2(cat, subs){
     el.addEventListener('click',()=>{
       selectedCat = cat;
       selectedSub = item;
-      const merchant = cat + ' - ' + item;
-      $('add-merchant').value = merchant;
+      $('add-expense-for').value = cat + ' - ' + item;
       $('cat-detected').textContent = cat;
       $('add-category').value = cat;
       buildSuggest();
@@ -852,17 +831,19 @@ document.querySelectorAll('.numpad button').forEach(btn=>{
   });
 });
 
-// merchant input + suggest
-$('add-merchant').addEventListener('input',()=>{
+// expense-for input + suggest
+$('add-expense-for').addEventListener('input',()=>{
   buildSuggest();
-  const cat=detectCategory($('add-merchant').value);
-  $('cat-detected').textContent=cat;
-  $('add-category').value=cat;
+  const val=$('add-expense-for').value.trim();
+  const parts=val.split(' - ');
+  const cat=parts[0] || '';
+  $('cat-detected').textContent=cat || 'Others';
+  $('add-category').value=cat || 'Others';
   // If user types while in level 2, go back to level 1
   if(!$('sub-chips').classList.contains('hidden')){
     $('sub-chips').classList.add('hidden');
     $('cat-chips').classList.remove('hidden');
-    buildCatLevel1(cat);
+    buildCatLevel1(cat || 'Others');
   }else{
     // Update cat chip highlight
     const chips=$('cat-chips');
@@ -873,19 +854,19 @@ $('add-merchant').addEventListener('input',()=>{
 });
 
 function buildSuggest(){
-  const val=$('add-merchant').value.toLowerCase().trim();
-  const box=$('merchant-suggest');
+  const val=$('add-expense-for').value.toLowerCase().trim();
+  const box=$('expense-suggest');
   if(!val){ box.innerHTML=''; return; }
   if(!currentUser){ box.innerHTML=''; return; }
   loadExpenses(currentUser.uid).then(list=>{
     const matches=[];
-    list.forEach(e=>{ if(e.merchant.toLowerCase().includes(val)) matches.push(e.merchant); });
-    QUICK_TILES.forEach(t=>{ if(t.merchant.toLowerCase().includes(val)) matches.push(t.merchant); });
+    list.forEach(e=>{ const label = e.category + (e.subCategory ? ' - ' + e.subCategory : ''); if(label.toLowerCase().includes(val)) matches.push(label); });
+    QUICK_TILES.forEach(t=>{ if(t.category.toLowerCase().includes(val)) matches.push(t.category); });
     const uniq=[...new Set(matches)].slice(0,6);
-    box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setMerchant('${esc(m)}')">${esc(m)}</span>`).join('');
+    box.innerHTML=uniq.map(m=>`<span class="suggest-chip" onclick="window.setExpenseFor('${esc(m)}')">${esc(m)}</span>`).join('');
   });
 }
-window.setMerchant=function(m){ $('add-merchant').value=m; buildSuggest(); const cat=detectCategory(m); $('cat-detected').textContent=cat; $('add-category').value=cat; const chips=$('cat-chips'); if(chips&&chips.innerHTML){ chips.querySelectorAll('.tile').forEach(t=>t.classList.toggle('on', t.textContent===cat)); } if(!$('sub-chips').classList.contains('hidden')){ $('sub-chips').classList.add('hidden'); $('cat-chips').classList.remove('hidden'); } };
+window.setExpenseFor=function(m){ $('add-expense-for').value=m; buildSuggest(); const parts=m.split(' - '); const cat=parts[0]; const sub=parts[1]||''; selectedCat=cat; selectedSub=sub; $('cat-detected').textContent=cat; $('add-category').value=cat; buildCatLevel1(cat); if(!$('sub-chips').classList.contains('hidden')){ $('sub-chips').classList.add('hidden'); $('cat-chips').classList.remove('hidden'); } };
 
 // payment method chips
 let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
@@ -998,7 +979,7 @@ function renderReview(){
         item.className = 'item review-item';
         item.innerHTML = `
           <div class="item-left">
-            <span class="item-name">${esc(e.merchant || (e.category + (e.subCategory ? ' - ' + e.subCategory : '')))} <span class="partner-tag">${esc(e._user)}</span></span>
+            <span class="item-name">${esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''))} <span class="partner-tag">${esc(e._user)}</span></span>
             <span class="item-meta">${e.category} · ${e.date}</span>
           </div>
           <span class="item-amount">${fmtMoney(e.amount)}</span>
