@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.6.2';
+const APP_VER = 'v2.6.3';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -788,9 +788,10 @@ $('btn-save').addEventListener('click',()=>{
   }else{
     // CREATE MODE
     const ts = Date.now();
+    const useDate = $('add-date').value || fmtDate(now());
     const expense = {
       category, amount, payment, notes,
-      date: fmtDate(now()),
+      date: useDate,
       timestamp: ts,
       status: 'pending',
       type: 'expense'
@@ -903,51 +904,6 @@ $('add-date').addEventListener('change',()=>{
   $('date-detected').textContent = fmtDateDisplay($('add-date').value);
   $('date-detected').classList.remove('hidden');
   $('add-date').classList.add('hidden');
-});
-
-// save / update
-$('btn-save').addEventListener('click',()=>{
-  const merchant=$('add-merchant').value.trim();
-  const amount=parseMoney(amountStr);
-  const category = $('cat-detected').textContent || detectCategory(merchant);
-  const payment = $('add-payment').value || 'Cash';
-  const useDate = $('add-date').value || fmtDate(now());
-  const notes = $('add-remarks').value.trim();
-  if(!merchant){ alert('Enter merchant'); return; }
-  if(amount<=0){ alert('Enter amount'); return; }
-
-  if(editTarget){
-    // UPDATE MODE
-    const data = { merchant, amount, category, payment, date: useDate, notes };
-    updateExpense(editTarget.uid, editTarget.id, data).then(()=>{
-      lastMerchant = merchant;
-      lastPayment = payment;
-      editTarget = null;
-      showScreen('dash-screen');
-      refreshDash();
-    });
-  }else{
-    // CREATE MODE
-    const ts = Date.now();
-    const expense = {
-      merchant, amount, category, payment, notes,
-      date: useDate,
-      timestamp: ts,
-      status: 'pending'
-    };
-
-    loadSettings(currentUser.uid).then(settings=>{
-      if(!settings.ownerUid){
-        expense.status = 'approved';
-      }
-      saveExpense(currentUser.uid, expense).then(()=>{
-        lastMerchant = merchant;
-        lastPayment = payment;
-        showScreen('dash-screen');
-        refreshDash();
-      });
-    });
-  }
 });
 
 // delete (shown only in edit mode)
