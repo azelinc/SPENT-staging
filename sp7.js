@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.0';
+const APP_VER = 'v2.7.1';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -113,7 +113,6 @@ const SCREEN_PARENT = {
   'settings-screen': 'dash-screen',
   'bills-screen': 'dash-screen'
 };
-let backTimer = null;
 
 function showScreen(id, silent){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -129,33 +128,18 @@ window.addEventListener('popstate', e=>{
     const parent = SCREEN_PARENT[state.screen];
     if(parent){
       showScreen(parent, true); // silent — no history push
+      return;
     }
-  }else{
-    if(!backTimer){
-      backTimer = setTimeout(()=>{ backTimer = null; }, 2000);
-      const msg = document.getElementById('back-exit-msg') || (function(){
-        const el = document.createElement('div');
-        el.id = 'back-exit-msg';
-        el.textContent = 'Press back again to exit';
-        Object.assign(el.style, {
-          position:'fixed', bottom:'80px', left:'50%', transform:'translateX(-50%)',
-          background:'var(--surface-2)', color:'var(--muted)', padding:'8px 16px',
-          borderRadius:'8px', fontSize:'0.8rem', zIndex:'999', transition:'opacity 0.3s'
-        });
-        document.body.appendChild(el);
-        return el;
-      })();
-      msg.style.opacity = '1';
-      setTimeout(()=>{ msg.style.opacity = '0'; }, 1500);
-    }else{
-      clearTimeout(backTimer);
-      backTimer = null;
-      const msg = document.getElementById('back-exit-msg');
-      if(msg) msg.remove();
-      window.close();
+    // Already at a top-level screen — push dash state to prevent exit
+    if(state.screen === 'dash-screen'){
+      history.pushState({screen:'dash-screen'}, '', '#dash-screen');
+      showScreen('dash-screen', true);
+      return;
     }
-    history.replaceState({screen: 'dash-screen'}, '', '#dash-screen');
   }
+  // Fallback: go to dash
+  history.pushState({screen:'dash-screen'}, '', '#dash-screen');
+  showScreen('dash-screen', true);
 });
 
 /* ─── AUTH ─── */
