@@ -559,12 +559,13 @@ html, body {
 .bill-paid .bill-check { color: var(--success); }
 .bill-due-overdue { color: var(--danger); font-weight: 600; }
 .bill-due-soon { color: #f59e0b; font-weight: 600; }
-.bill-updated-meta {
-  color: #f59e0b;
-  font-size: 0.55rem;
+.bill-updated-badge {
+  color: #60a5fa;
+  font-size: 0.5rem;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 .btn-xs { padding: 2px 6px; font-size: 0.75rem; width: auto; }
 .bill-edit-btn {
