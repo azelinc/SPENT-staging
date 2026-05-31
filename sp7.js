@@ -1269,15 +1269,8 @@ function billMonthKey(bill){
   // Due date hasn't passed this month → belongs to this month
   if(dueDate >= today) return mk;
 
-  // Due date already passed this month
-  const pm = bill.paidMonths || {};
-  // Not paid → still this month's bill (overdue)
-  if(!pm[mk]) return mk;
-  // Paid → advance to next month
-  const nm = m + 1;
-  const ny = y + Math.floor(nm / 12);
-  const nn = nm % 12;
-  return `${ny}-${String(nn+1).padStart(2,'0')}`;
+  // Due date already passed this month — still belongs to this month
+  return mk;
 }
 
 function computeAutoBacklog(bill, monthKey){
@@ -1327,11 +1320,20 @@ function computeBacklog(bill, monthKey){
 }
 
 function togglePaid(uid, billId, monthKey, isPaid){
-  if(isPaid){
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove().then(() => { renderBills(); updateBillBadge(); });
-  }else{
-    billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true).then(() => { renderBills(); updateBillBadge(); });
-  }
+  const savedScroll = document.scrollingElement.scrollTop;
+  const promise = isPaid
+    ? billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove()
+    : billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true);
+  promise.then(() => {
+    const p = renderBills();
+    updateBillBadge();
+    // Restore scroll after renderBills has finished its async DOM rebuild
+    if(p && p.then){
+      p.then(() => { document.scrollingElement.scrollTop = savedScroll; });
+    }else{
+      document.scrollingElement.scrollTop = savedScroll;
+    }
+  });
 }
 
 // Auto-advance: if bill is ahead (backlog < 0) and current month unpaid, mark paid
@@ -1380,7 +1382,7 @@ function renderBills(){
   list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
   if(!currentUser) return;
 
-  loadBills(currentUser.uid).then(bills=>{
+  return loadBills(currentUser.uid).then(bills=>{
     // Auto-advance ahead bills before rendering
     const advances = autoAdvanceBills(bills);
     if(advances.length > 0){
