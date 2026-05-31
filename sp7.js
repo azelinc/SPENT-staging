@@ -1495,6 +1495,7 @@ function renderBills(){
       let metaParts = [`Day ${b.dueDay}`, `<span class="${dueClass}">${dueLabel}</span>`];
       if(backlog > 1) metaParts.push(`<span class="bill-due-overdue">+${backlog} unpaid</span>`);
       else if(backlog < 0) metaParts.push(`<span style="color:var(--accent-2);font-weight:600">★ Ahead by ${Math.abs(backlog)}</span>`);
+      if(isRecentlyUpdated(b.emailUpdatedAt)) metaParts.push('<span class="bill-updated-meta">Updated</span>');
 
       const row = document.createElement('div');
       const rowClasses = ['item', 'bill-row'];
@@ -1508,7 +1509,7 @@ function renderBills(){
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <span class="bill-check">${checkChar}</span>
           <div style="flex:1;min-width:0">
-            <span class="item-name">${esc(b.name)}</span>${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}
+            <span class="item-name">${esc(b.name)}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
           </div>
           <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
