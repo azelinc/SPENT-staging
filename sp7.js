@@ -1325,9 +1325,8 @@ function togglePaid(uid, billId, monthKey, isPaid){
     ? billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove()
     : billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true);
   promise.then(() => {
-    const p = renderBills();
+    const p = renderBills(true);
     updateBillBadge();
-    // Restore scroll after renderBills has finished its async DOM rebuild
     if(p && p.then){
       p.then(() => { document.scrollingElement.scrollTop = savedScroll; });
     }else{
@@ -1377,9 +1376,9 @@ function updateBillBadge(){
   });
 }
 
-function renderBills(){
+function renderBills(silent){
   const list = $('bills-list');
-  list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
+  if(!silent) list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
   if(!currentUser) return;
 
   return loadBills(currentUser.uid).then(bills=>{
