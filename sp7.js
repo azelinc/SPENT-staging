@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.1';
+const APP_VER = 'v2.7.2';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -856,6 +856,7 @@ window.setExpenseFor=function(m){ $('add-expense-for').value=m; buildSuggest(); 
 let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
 function buildPayChips(methods, selected){
   currentPayMethods = methods;
+  $('add-payment').value = selected || methods[0] || 'Cash';
   const wrap = $('pay-chips');
   wrap.innerHTML = methods.map(m => {
     const cls = m === selected ? 'tile on' : 'tile';
