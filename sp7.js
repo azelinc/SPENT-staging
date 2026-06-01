@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.2';
+const APP_VER = 'v2.7.3';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -113,6 +113,7 @@ const SCREEN_PARENT = {
   'settings-screen': 'dash-screen',
   'bills-screen': 'dash-screen'
 };
+let backTimer = null;
 
 function showScreen(id, silent){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -128,18 +129,33 @@ window.addEventListener('popstate', e=>{
     const parent = SCREEN_PARENT[state.screen];
     if(parent){
       showScreen(parent, true); // silent — no history push
-      return;
     }
-    // Already at a top-level screen — push dash state to prevent exit
-    if(state.screen === 'dash-screen'){
-      history.pushState({screen:'dash-screen'}, '', '#dash-screen');
-      showScreen('dash-screen', true);
-      return;
+  }else{
+    if(!backTimer){
+      backTimer = setTimeout(()=>{ backTimer = null; }, 2000);
+      const msg = document.getElementById('back-exit-msg') || (function(){
+        const el = document.createElement('div');
+        el.id = 'back-exit-msg';
+        el.textContent = 'Press back again to exit';
+        Object.assign(el.style, {
+          position:'fixed', bottom:'80px', left:'50%', transform:'translateX(-50%)',
+          background:'var(--surface-2)', color:'var(--muted)', padding:'8px 16px',
+          borderRadius:'8px', fontSize:'0.8rem', zIndex:'999', transition:'opacity 0.3s'
+        });
+        document.body.appendChild(el);
+        return el;
+      })();
+      msg.style.opacity = '1';
+      setTimeout(()=>{ msg.style.opacity = '0'; }, 1500);
+    }else{
+      clearTimeout(backTimer);
+      backTimer = null;
+      const msg = document.getElementById('back-exit-msg');
+      if(msg) msg.remove();
+      window.close();
     }
+    history.replaceState({screen: 'dash-screen'}, '', '#dash-screen');
   }
-  // Fallback: go to dash
-  history.pushState({screen:'dash-screen'}, '', '#dash-screen');
-  showScreen('dash-screen', true);
 });
 
 /* ─── AUTH ─── */
@@ -856,7 +872,6 @@ window.setExpenseFor=function(m){ $('add-expense-for').value=m; buildSuggest(); 
 let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
 function buildPayChips(methods, selected){
   currentPayMethods = methods;
-  $('add-payment').value = selected || methods[0] || 'Cash';
   const wrap = $('pay-chips');
   wrap.innerHTML = methods.map(m => {
     const cls = m === selected ? 'tile on' : 'tile';
@@ -1325,8 +1340,9 @@ function togglePaid(uid, billId, monthKey, isPaid){
     ? billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove()
     : billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true);
   promise.then(() => {
-    const p = renderBills(true);
+    const p = renderBills();
     updateBillBadge();
+    // Restore scroll after renderBills has finished its async DOM rebuild
     if(p && p.then){
       p.then(() => { document.scrollingElement.scrollTop = savedScroll; });
     }else{
@@ -1376,9 +1392,9 @@ function updateBillBadge(){
   });
 }
 
-function renderBills(silent){
+function renderBills(){
   const list = $('bills-list');
-  if(!silent) list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
+  list.innerHTML = '<div class="item"><div class="item-left"><span class="item-name">Loading...</span></div></div>';
   if(!currentUser) return;
 
   return loadBills(currentUser.uid).then(bills=>{
@@ -1495,7 +1511,7 @@ function renderBills(silent){
             <span class="item-name">${esc(b.name)}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
           </div>
-          <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
+          ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
         </div>
       `;
 
@@ -1526,6 +1542,15 @@ function computeCurrentDueDays(dueDay, reference){
   const m = d.getMonth();
   function dim(yr,mn){ return new Date(yr, mn+1, 0).getDate(); }
   return Math.ceil((new Date(y, m, Math.min(dueDay, dim(y,m))) - d) / 86400000);
+}
+
+/* ─── EMAIL UPDATED BADGE HELPER ─── */
+function isRecentlyUpdated(emailUpdatedAt){
+  if(!emailUpdatedAt) return false;
+  const updated = new Date(emailUpdatedAt);
+  if(isNaN(updated.getTime())) return false;
+  const diffHrs = (now() - updated) / 3600000;
+  return diffHrs >= 0 && diffHrs <= 48;
 }
 
 /* ─── NEXT DUE DATE CALC ─── */

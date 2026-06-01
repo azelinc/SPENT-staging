@@ -1,9 +1,9 @@
-const CACHE = 'spent-v73';
+const CACHE = 'spent-v74';
 const FILES = [
   '/',
   '/index.html',
-'/sp7.css?v=73'
-'/sp7.js?v=73'
+'/sp7.css?v=74'
+'/sp7.js?v=74'
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
@@ -16,5 +16,7 @@ self.addEventListener('activate',e=>{
   e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch',e=>{
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>caches.match('/SPENT/'))));
+  e.respondWith(
+    fetch(e.request).catch(()=>caches.match(e.request).then(r=>r||caches.match('/SPENT/')))
+  );
 });
