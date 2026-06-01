@@ -1521,9 +1521,10 @@ function renderBills(){
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <span class="bill-check">${checkChar}</span>
           <div style="flex:1;min-width:0">
-            <span class="item-name">${esc(b.name)}</span>${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<span class="bill-amount">${b.amount ? 'RM'+Number(b.amount).toFixed(2) : ''}</span>
+            <span class="item-name">${esc(b.name)}</span><span class="bill-amount">${b.amount ? 'RM'+Number(b.amount).toFixed(2) : ''}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
           </div>
+          ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}
           <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
         </div>
       `;
