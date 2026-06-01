@@ -578,12 +578,11 @@ html, body {
 .bill-edit-btn:hover { opacity: 1; }
 #btn-bill-edit-mode.active { background: var(--accent-1); color: #fff; }
 .bill-amount {
-  display: inline-block;
-  font-size: 0.65rem;
+  font-size: 0.5rem;
   font-weight: 600;
   color: var(--text-2);
-  margin-left: 6px;
-  vertical-align: middle;
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 /* Bills summary */
