@@ -1529,10 +1529,9 @@ function renderBills(){
         </div>
       `;
 
-      // Tap anywhere on the row → toggle paid (except edit btn)
+      // Tap checkbox to toggle paid
       row.addEventListener('click', e => {
-        if(e.target.classList.contains('bill-edit-btn')) return;
-        togglePaid(currentUser.uid, b.id, mk, isPaid);
+        if(e.target.classList.contains('bill-check')) togglePaid(currentUser.uid, b.id, mk, isPaid);
       });
 
       // Edit button
