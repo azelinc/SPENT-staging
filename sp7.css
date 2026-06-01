@@ -560,20 +560,36 @@ html, body {
 .bill-due-overdue { color: var(--danger); font-weight: 600; }
 .bill-due-soon { color: #f59e0b; font-weight: 600; }
 .bill-updated-badge {
-  color: #60a5fa;
-  font-size: 0.5rem;
-  font-weight: 600;
+  display: inline-block;
+  background: var(--accent-1);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
   letter-spacing: 0.3px;
   text-transform: uppercase;
-  flex-shrink: 0;
 }
 .btn-xs { padding: 2px 6px; font-size: 0.75rem; width: auto; }
 .bill-edit-btn {
   flex-shrink: 0;
   opacity: 0.4;
   transition: opacity 0.2s;
+  display: none;
 }
+.bills-edit-mode .bill-edit-btn { display: inline-block; }
 .bill-edit-btn:hover { opacity: 1; }
+#btn-bill-edit-mode.active { background: var(--accent-1); color: #fff; }
+.bill-amount {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-left: 6px;
+  vertical-align: middle;
+}
 
 /* Bills summary */
 .bills-summary {

@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.3';
+const APP_VER = 'v2.8.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -1261,11 +1261,24 @@ function deleteBill(uid, billId){
 }
 
 /* ─── BILLS NAV ─── */
+let billEditMode = false;
+
 $('btn-bills').addEventListener('click',()=>{
   showScreen('bills-screen');
   renderBills();
+  if(billEditMode) {
+    $('bills-list').classList.add('bills-edit-mode');
+    $('btn-bill-edit-mode').classList.add('active');
+  }
 });
 $('btn-bills-back').addEventListener('click',()=>showScreen('dash-screen'));
+$('btn-bill-edit-mode').addEventListener('click',()=>{
+  billEditMode = !billEditMode;
+  $('btn-bill-edit-mode').classList.toggle('active', billEditMode);
+  const list = $('bills-list');
+  if(billEditMode) list.classList.add('bills-edit-mode');
+  else list.classList.remove('bills-edit-mode');
+});
 
 // Live search filter
 $('bill-search').addEventListener('input', () => renderBills());
@@ -1508,10 +1521,10 @@ function renderBills(){
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
           <span class="bill-check">${checkChar}</span>
           <div style="flex:1;min-width:0">
-            <span class="item-name">${esc(b.name)}</span>
+            <span class="item-name">${esc(b.name)}</span>${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<span class="bill-amount">${b.amount ? 'RM'+Number(b.amount).toFixed(2) : ''}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
           </div>
-          ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
+          <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
         </div>
       `;
 
