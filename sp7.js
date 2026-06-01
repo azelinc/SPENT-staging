@@ -1511,7 +1511,7 @@ function renderBills(){
             <span class="item-name">${esc(b.name)}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
           </div>
-          ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
+          ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}<span class="item-amount" style="font-size:0.7rem;flex-shrink:0">${fmtMoney(b.amount)}</span><button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
         </div>
       `;
 
