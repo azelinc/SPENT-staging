@@ -129,6 +129,9 @@ window.addEventListener('popstate', e=>{
     const parent = SCREEN_PARENT[state.screen];
     if(parent){
       showScreen(parent, true); // silent — no history push
+    }else{
+      // Root screen (dash-screen) — show it and DON'T fall through to exit logic
+      showScreen(state.screen, true);
     }
   }else{
     if(!backTimer){
