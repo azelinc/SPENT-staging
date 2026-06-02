@@ -288,8 +288,8 @@ html, body {
   margin-bottom: 6px;
 }
 .split-row:last-child { margin-bottom: 0; }
-.split-row select {
-  flex: 3;
+.split-row .split-cat {
+  flex: 2;
   min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -301,23 +301,32 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.split-row input {
-  width: 76px;
-  max-width: 76px;
+.split-row .split-sub {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 4px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+.split-row .split-amt {
+  width: 72px;
+  max-width: 72px;
   flex-shrink: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 8px 6px;
+  padding: 8px 4px;
   border-radius: 8px;
   font-size: 0.85rem;
   text-align: right;
   outline: none;
-}
-.split-row .split-rm {
-  font-size: 0.75rem;
-  color: var(--muted);
-  flex-shrink: 0;
 }
 .split-row .split-remove {
   flex-shrink: 0;

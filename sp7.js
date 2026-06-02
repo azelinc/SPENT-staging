@@ -485,6 +485,9 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       const isPartner = e._uid !== currentUser.uid;
       const tag = isPartner ? `<span class="partner-tag">${esc(e._user)}</span>` : '';
       const statusLabel = e.status==='pending' ? ' <span style="color:var(--danger);font-size:0.7rem">[PENDING]</span>' : '';
+      const splits = e.splits && e.splits.length > 1 ? e.splits : null;
+      const splitBadge = splits ? ` <span style="font-size:.55rem;color:var(--muted);background:var(--surface-2);border-radius:3px;padding:0 4px">+${splits.length-1} more</span>` : '';
+      const displayName = splits ? esc(splits[0].category + (splits[0].subCategory ? ' - ' + splits[0].subCategory : '')) : esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''));
       const canEdit = checkEditAllowed(e, isOwnerView);
       const isOwner = isOwnerView && e._uid !== currentUser.uid;
 
@@ -503,7 +506,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       item.innerHTML = `
         <div class="item-left">
           <div class="item-name-row">
-            <span class="item-name">${esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''))}${tag}${statusLabel}</span>
+            <span class="item-name">${displayName}${splitBadge}${tag}${statusLabel}</span>
             ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
             ${e.type === 'income' ? '<span class="item-income-tag">Income</span>' : ''}
             ${inlineActions}
@@ -797,32 +800,29 @@ $('btn-save').addEventListener('click',()=>{
     const useDate = $('add-date').value || fmtDate(now());
 
     if(splitActive){
-      // SPLIT MODE — save multiple expenses
+      // SPLIT MODE — single record with splits array
       const validRows = splitRows.filter(r => r.amount > 0 && r.category);
       if(validRows.length < 2){ alert('Need at least 2 split parts with amounts'); return; }
       const splitSum = validRows.reduce((a,r) => a + r.amount, 0);
-      if(Math.abs(amount - splitSum) > 0.01){ alert(`Split total (RM ${splitSum.toFixed(2)}) doesn't match amount (RM ${amount.toFixed(2)})`); return; }
-      const splitGroup = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      // Build splits array
+      const splits = validRows.map(r => {
+        const s = { category: r.category, amount: r.amount };
+        if(r.subCategory) s.subCategory = r.subCategory;
+        return s;
+      });
       loadSettings(currentUser.uid).then(settings=>{
-        const status = !settings.ownerUid ? 'approved' : 'pending';
-        const saves = validRows.map(r => {
-          const splitLabel = r.subCategory ? r.category + ' - ' + r.subCategory : r.category;
-          const exp = {
-            category: r.category,
-            amount: r.amount,
-            payment,
-            notes: notes || 'Split',
-            date: useDate,
-            timestamp: ts,
-            status,
-            type: 'expense',
-            splitGroup,
-            splitPart: splitLabel
-          };
-          if(r.subCategory) exp.subCategory = r.subCategory;
-          return saveExpense(currentUser.uid, exp);
-        });
-        Promise.all(saves).then(()=>{
+        const expense = {
+          category: splits[0].category,
+          amount: splitSum,
+          payment,
+          notes: notes || 'Split',
+          date: useDate,
+          timestamp: ts,
+          status: !settings.ownerUid ? 'approved' : 'pending',
+          type: 'expense',
+          splits
+        };
+        saveExpense(currentUser.uid, expense).then(()=>{
           lastPayment = payment;
           resetSplit();
           showScreen('dash-screen');
@@ -889,75 +889,77 @@ function toggleSplit(){
     btn.textContent = '⚡ Split ON';
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
-    // Init with 2 rows using current selected category & sub
+    // Hide category chips when in split mode
+    $('cat-chips').classList.add('hidden');
+    $('sub-chips').classList.add('hidden');
+    $('subcat-field').classList.add('hidden');
+    // Dim amount display — sum of splits drives total
+    $('amount-display').style.opacity = '0.5';
+    // Init with 2 rows using current category, split equally
     const cat = selectedCat || 'Food & Dining';
-    const sub = selectedSub || '';
     const total = parseMoney(amountStr);
     if(total <= 0){ splitRows = []; }
-    else { splitRows = [{ category: cat, subCategory: sub, amount: (total/2) }, { category: 'Others', subCategory: '', amount: (total/2) }]; }
+    else {
+      const half = +(total / 2).toFixed(2);
+      splitRows = [{ category: cat, subCategory: '', amount: half }, { category: 'Others', subCategory: '', amount: +(total - half).toFixed(2) }];
+    }
     buildSplitRows();
-    updateSplitBalance();
+    updateSplitTotal();
   }else{
     panel.classList.add('hidden');
     info.classList.add('hidden');
     btn.textContent = '⚡ Split';
     btn.style.background = '';
     btn.style.color = '';
+    $('amount-display').style.opacity = '1';
+    // Restore category chips
+    $('cat-chips').classList.remove('hidden');
+    if(selectedCat && getSubs(selectedCat).length > 0){
+      $('subcat-field').classList.remove('hidden');
+    }
     splitRows = [];
   }
-}
-
-function getSplitCatOpts(){
-  // Returns flat list of {category, subCategory, label} from the same source as chip system
-  const src = categorySubs || DEFAULT_CATEGORY_SUBS;
-  const opts = [];
-  Object.keys(src).forEach(c => {
-    const subs = src[c];
-    if(subs && subs.length > 0){
-      subs.forEach(s => opts.push({ category: c, subCategory: s, label: c + ' - ' + s }));
-    }else{
-      opts.push({ category: c, subCategory: '', label: c });
-    }
-  });
-  return opts;
 }
 
 function buildSplitRows(){
   const wrap = $('split-rows');
   wrap.innerHTML = '';
-  const opts = getSplitCatOpts();
   splitRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'split-row';
     // Category select
     const sel = document.createElement('select');
-    opts.forEach(o => {
+    sel.className = 'split-cat';
+    CATEGORIES.forEach(c => {
       const opt = document.createElement('option');
-      opt.value = o.category + '||' + o.subCategory;
-      opt.textContent = o.label;
-      if(o.category === r.category && o.subCategory === (r.subCategory || '')) opt.selected = true;
+      opt.value = c;
+      opt.textContent = c;
+      if(c === r.category) opt.selected = true;
       sel.appendChild(opt);
     });
+    // Subcategory select
+    const subSel = document.createElement('select');
+    subSel.className = 'split-sub';
+    fillSubSelect(subSel, sel.value, r.subCategory || '');
     sel.addEventListener('change', () => {
-      const parts = sel.value.split('||');
-      splitRows[i].category = parts[0];
-      splitRows[i].subCategory = parts[1] || '';
-      updateSplitBalance();
+      splitRows[i].category = sel.value;
+      splitRows[i].subCategory = '';
+      fillSubSelect(subSel, sel.value, '');
+      updateSplitTotal();
     });
-    // RM prefix
-    const rm = document.createElement('span');
-    rm.className = 'split-rm';
-    rm.textContent = 'RM';
+    subSel.addEventListener('change', () => {
+      splitRows[i].subCategory = subSel.value;
+    });
     // Amount input
     const inp = document.createElement('input');
     inp.type = 'text';
     inp.inputMode = 'decimal';
+    inp.className = 'split-amt';
     inp.value = r.amount > 0 ? r.amount.toFixed(2) : '';
     inp.placeholder = '0.00';
     inp.addEventListener('input', () => {
-      const v = parseFloat(inp.value) || 0;
-      splitRows[i].amount = v;
-      updateSplitBalance();
+      splitRows[i].amount = parseFloat(inp.value) || 0;
+      updateSplitTotal();
     });
     // Remove button
     const rem = document.createElement('button');
@@ -967,49 +969,62 @@ function buildSplitRows(){
     if(splitRows.length < 2) rem.style.visibility = 'hidden';
 
     row.appendChild(sel);
-    row.appendChild(rm);
+    row.appendChild(subSel);
     row.appendChild(inp);
     row.appendChild(rem);
     wrap.appendChild(row);
   });
-  // Show/hide add split button
-  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= opts.length);
+  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= CATEGORIES.length);
 }
 
-function updateSplitBalance(){
+function fillSubSelect(sel, cat, selected){
+  sel.innerHTML = '<option value="">—</option>';
+  const subs = getSubs(cat);
+  subs.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s;
+    if(s === selected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function updateSplitTotal(){
+  const sum = splitRows.reduce((a, r) => a + (r.amount || 0), 0);
+  if(splitActive){
+    $('amount-display').textContent = sum.toFixed(2);
+  }
+  // Balance indicator
   const total = parseMoney(amountStr);
-  const sum = splitRows.reduce((a, r) => a + r.amount, 0);
-  const remaining = total - sum;
   const el = $('split-balance');
   el.classList.remove('hidden', 'ok', 'over');
-  if(splitRows.length === 0){ el.textContent = ''; el.classList.add('hidden'); return; }
+  if(splitRows.length === 0 || total <= 0){ el.textContent = ''; el.classList.add('hidden'); return; }
+  const remaining = +(total - sum).toFixed(2);
   if(Math.abs(remaining) < 0.01){
     el.textContent = '✓ Balanced';
     el.classList.add('ok');
   }else if(remaining > 0){
-    el.textContent = `RM ${remaining.toFixed(2)} remaining to allocate`;
+    el.textContent = `RM ${remaining.toFixed(2)} remaining`;
   }else{
-    el.textContent = `RM ${Math.abs(remaining).toFixed(2)} over total`;
+    el.textContent = `RM ${Math.abs(remaining).toFixed(2)} over`;
     el.classList.add('over');
   }
 }
 
 function addSplitRow(){
-  const opts = getSplitCatOpts();
-  if(splitRows.length >= opts.length) return;
-  const used = splitRows.map(r => r.category + '||' + (r.subCategory||''));
-  const avail = opts.find(o => !used.includes(o.category + '||' + o.subCategory));
-  if(!avail) return;
-  splitRows.push({ category: avail.category, subCategory: avail.subCategory, amount: 0 });
+  if(splitRows.length >= CATEGORIES.length) return;
+  const used = splitRows.map(r => r.category);
+  const avail = CATEGORIES.find(c => !used.includes(c)) || 'Others';
+  splitRows.push({ category: avail, subCategory: '', amount: 0 });
   buildSplitRows();
-  updateSplitBalance();
+  updateSplitTotal();
 }
 
 function removeSplitRow(idx){
   if(splitRows.length <= 1) return;
   splitRows.splice(idx, 1);
   buildSplitRows();
-  updateSplitBalance();
+  updateSplitTotal();
 }
 
 function resetSplit(){
@@ -1018,9 +1033,13 @@ function resetSplit(){
   const panel = $('split-panel');
   const info = $('split-info');
   const btn = $('btn-split-toggle');
-  if(panel){ panel.classList.add('hidden'); }
-  if(info){ info.classList.add('hidden'); }
+  const disp = $('amount-display');
+  if(panel) panel.classList.add('hidden');
+  if(info) info.classList.add('hidden');
   if(btn){ btn.textContent = '⚡ Split'; btn.style.background = ''; btn.style.color = ''; }
+  if(disp) disp.style.opacity = '1';
+  const c = $('cat-chips');
+  if(c) c.classList.remove('hidden');
 }
 
 // expense-for input + suggest
