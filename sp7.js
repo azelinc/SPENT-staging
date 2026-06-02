@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.6';
+const APP_VER = 'v2.8.7';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -48,6 +48,8 @@ const DEFAULT_ACCOUNTS = {
 };
 let accountColors = {}; // loaded from Firebase per-user
 let hiddenAccounts = {}; // { name: true } for hidden payment methods
+let categoryOrder = [];  // MRU order for categories
+let accountOrder = [];   // MRU order for accounts
 const DEFAULT_SUBCATEGORIES = {
   'Food & Dining': ['Lunch','Dinner','Breakfast','Snack','Drinks'],
   'Groceries': ['Weekly','Top-up','Bulk'],
@@ -106,6 +108,13 @@ function loadCategorySubs(){
     }
   }).catch(()=>{
     categorySubs = DEFAULT_CATEGORY_SUBS;
+  }).then(()=>{
+    // Also load per-user category MRU order
+    if(currentUser){
+      return db.ref(`users/${currentUser.uid}/settings/categoryOrder`).once('value').then(s=>{
+        categoryOrder = s.val() || [];
+      }).catch(()=>{ categoryOrder = []; });
+    }
   });
 }
 
@@ -165,7 +174,20 @@ window.addEventListener('popstate', e=>{
 });
 
 /* ─── AUTH ─── */
+let authTimeout = setTimeout(()=>{
+  // If auth hasn't resolved in 3s, show login form anyway
+  const loading = $('login-loading');
+  const form = $('login-form');
+  if(loading) loading.style.display = 'none';
+  if(form) form.style.display = 'block';
+}, 3000);
+
 auth.onAuthStateChanged(user=>{
+  clearTimeout(authTimeout);
+  const loading = $('login-loading');
+  const form = $('login-form');
+  if(loading) loading.style.display = 'none';
+  if(form) form.style.display = 'block';
   authReady = true;
   if(user){
     if(!currentUser){
@@ -261,16 +283,24 @@ function loadPaymentMethods(uid){
     const settings = s.val() || {};
     const accounts = settings.accounts;
     hiddenAccounts = settings.hiddenAccounts || {};
+    accountOrder = settings.accountOrder || [];
     if(accounts && typeof accounts === 'object'){
       accountColors = accounts;
-      return Object.keys(accounts).filter(name => !hiddenAccounts[name]);
+      let list = Object.keys(accounts).filter(name => !hiddenAccounts[name]);
+      // Sort by MRU order
+      if(accountOrder.length){
+        list.sort((a,b) => (accountOrder.indexOf(a)===-1?999:accountOrder.indexOf(a)) - (accountOrder.indexOf(b)===-1?999:accountOrder.indexOf(b)));
+      }
+      return list;
     }
     accountColors = {};
     hiddenAccounts = {};
+    accountOrder = [];
     return Object.keys(DEFAULT_ACCOUNTS);
   }).catch(()=>{
     accountColors = {};
     hiddenAccounts = {};
+    accountOrder = [];
     return Object.keys(DEFAULT_ACCOUNTS);
   });
 }
@@ -717,7 +747,11 @@ function buildCatLevel1(selected){
   if(!wrap) return;
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
-  const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+  let cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+  // Sort by MRU order
+  if(categoryOrder && categoryOrder.length){
+    cats.sort((a,b) => (categoryOrder.indexOf(a)===-1?999:categoryOrder.indexOf(a)) - (categoryOrder.indexOf(b)===-1?999:categoryOrder.indexOf(b)));
+  }
   cats.forEach(c=>{
     const el = document.createElement('div');
     el.className = 'tile' + (c===selected ? ' on' : '');
@@ -810,6 +844,7 @@ $('btn-save').addEventListener('click',()=>{
       };
       saveExpense(currentUser.uid, expense).then(()=>{
         lastPayment = payment;
+        updateMruOrder(splits[0].category, payment);
         resetSplit();
         showScreen('dash-screen');
         refreshDash();
@@ -830,6 +865,7 @@ $('btn-save').addEventListener('click',()=>{
       lastCategory = category;
       lastSubCategory = subCategory;
       lastPayment = payment;
+      updateMruOrder(category, payment);
       editTarget = null;
       showScreen('dash-screen');
       refreshDash();
@@ -856,6 +892,7 @@ $('btn-save').addEventListener('click',()=>{
         lastCategory = category;
         lastSubCategory = subCategory;
         lastPayment = payment;
+        updateMruOrder(category, payment);
         showScreen('dash-screen');
         refreshDash();
       });
@@ -1047,6 +1084,28 @@ function resetSplit(){
   if(disp) disp.style.opacity = '1';
   const c = $('cat-chips');
   if(c) c.classList.remove('hidden');
+}
+
+/* ─── MRU order update (non-blocking) ─── */
+function updateMruOrder(cat, payment){
+  if(!currentUser) return;
+  // Update in-memory categoryOrder
+  let catArr = categoryOrder.slice();
+  const ci = catArr.indexOf(cat);
+  if(ci > 0) catArr.splice(ci, 1);
+  if(ci !== 0) catArr.unshift(cat);
+  categoryOrder = catArr;
+  // Update in-memory accountOrder
+  let accArr = accountOrder.slice();
+  const ai = accArr.indexOf(payment);
+  if(ai > 0) accArr.splice(ai, 1);
+  if(ai !== 0) accArr.unshift(payment);
+  accountOrder = accArr;
+  // Persist silently
+  const updates = {};
+  updates[`users/${currentUser.uid}/settings/categoryOrder`] = catArr;
+  updates[`users/${currentUser.uid}/settings/accountOrder`] = accArr;
+  db.ref().update(updates).catch(()=>{});
 }
 
 // expense-for input + suggest
