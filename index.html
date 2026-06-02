@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- SPENT v2.8.3 -->
+<!-- SPENT v2.8.4 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPENT">
-<link rel="stylesheet" href="sp7.css?v=79">
+<link rel="stylesheet" href="sp7.css?v=80">
 </head>
 <body>
 <div id="app">
@@ -119,7 +119,20 @@
         </div>
       </div>
 
-      <div class="field">
+      <!-- SPLIT TOGGLE -->
+      <div class="field" id="split-field" style="margin-bottom:0">
+        <div class="split-toggle-row">
+          <button id="btn-split-toggle" class="btn-ghost btn-sm">⚡ Split</button>
+          <span id="split-info" class="split-info hidden">Split across categories</span>
+        </div>
+        <div id="split-panel" class="split-panel hidden">
+          <div id="split-rows"></div>
+          <span id="split-balance" class="split-balance hidden"></span>
+          <button id="btn-add-split-row" class="btn-ghost btn-sm split-add-btn hidden">+ Add part</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:20px">
         <label>Account</label>
         <div id="pay-chips" class="tiles"></div>
         <input type="hidden" id="add-payment" value="Cash">
@@ -282,6 +295,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<script src="sp7.js?v=79"></script>
+<script src="sp7.js?v=80"></script>
 </body>
 </html>

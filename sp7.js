@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.3';
+const APP_VER = 'v2.8.4';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -81,6 +81,8 @@ let lastPayment = 'Cash';
 let selectedCat = '';
 let selectedSub = '';
 let isIncomeEdit = false;
+let splitActive = false;
+let splitRows = [];  // [{category, amount}]
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -599,6 +601,7 @@ function buildSubChips(cat, selected){
 }
 
 function openAdd(preCategory, preSubCategory){
+  resetSplit();
   isIncomeEdit = false;
   document.querySelector('.add-title').textContent = 'New Expense';
   $('amount-display').classList.remove('income');
@@ -792,6 +795,41 @@ $('btn-save').addEventListener('click',()=>{
     // CREATE MODE
     const ts = Date.now();
     const useDate = $('add-date').value || fmtDate(now());
+
+    if(splitActive){
+      // SPLIT MODE — save multiple expenses
+      const validRows = splitRows.filter(r => r.amount > 0 && r.category);
+      if(validRows.length < 2){ alert('Need at least 2 split parts with amounts'); return; }
+      const splitSum = validRows.reduce((a,r) => a + r.amount, 0);
+      if(Math.abs(amount - splitSum) > 0.01){ alert(`Split total (RM ${splitSum.toFixed(2)}) doesn't match amount (RM ${amount.toFixed(2)})`); return; }
+      const splitGroup = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      loadSettings(currentUser.uid).then(settings=>{
+        const status = !settings.ownerUid ? 'approved' : 'pending';
+        const saves = validRows.map(r => {
+          const exp = {
+            category: r.category,
+            amount: r.amount,
+            payment,
+            notes: notes || 'Split',
+            date: useDate,
+            timestamp: ts,
+            status,
+            type: 'expense',
+            splitGroup,
+            splitPart: r.category
+          };
+          return saveExpense(currentUser.uid, exp);
+        });
+        Promise.all(saves).then(()=>{
+          lastPayment = payment;
+          resetSplit();
+          showScreen('dash-screen');
+          refreshDash();
+        });
+      });
+      return;
+    }
+
     const expense = {
       category, amount, payment, notes,
       date: useDate,
@@ -833,6 +871,134 @@ document.querySelectorAll('.numpad button').forEach(btn=>{
     $('amount-display').textContent=amountStr?parseFloat(amountStr).toFixed(2):'0.00';
   });
 });
+
+/* ─── SPLIT SYSTEM ─── */
+$('btn-split-toggle').addEventListener('click', toggleSplit);
+$('btn-add-split-row').addEventListener('click', addSplitRow);
+
+function toggleSplit(){
+  splitActive = !splitActive;
+  const panel = $('split-panel');
+  const info = $('split-info');
+  const btn = $('btn-split-toggle');
+  if(splitActive){
+    panel.classList.remove('hidden');
+    info.classList.remove('hidden');
+    btn.textContent = '⚡ Split ON';
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    // Init with 2 rows using current selected category
+    const cat = selectedCat || 'Food & Dining';
+    const total = parseMoney(amountStr);
+    if(total <= 0){ splitRows = []; }
+    else { splitRows = [{ category: cat, amount: (total/2) }, { category: 'Others', amount: (total/2) }]; }
+    buildSplitRows();
+    updateSplitBalance();
+  }else{
+    panel.classList.add('hidden');
+    info.classList.add('hidden');
+    btn.textContent = '⚡ Split';
+    btn.style.background = '';
+    btn.style.color = '';
+    splitRows = [];
+  }
+}
+
+function buildSplitRows(){
+  const wrap = $('split-rows');
+  wrap.innerHTML = '';
+  splitRows.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'split-row';
+    // Category select
+    const sel = document.createElement('select');
+    CATEGORIES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if(c === r.category) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      splitRows[i].category = sel.value;
+      updateSplitBalance();
+    });
+    // RM prefix
+    const rm = document.createElement('span');
+    rm.className = 'split-rm';
+    rm.textContent = 'RM';
+    // Amount input
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.inputMode = 'decimal';
+    inp.value = r.amount > 0 ? r.amount.toFixed(2) : '';
+    inp.placeholder = '0.00';
+    inp.addEventListener('input', () => {
+      const v = parseFloat(inp.value) || 0;
+      splitRows[i].amount = v;
+      updateSplitBalance();
+    });
+    // Remove button
+    const rem = document.createElement('button');
+    rem.className = 'split-remove';
+    rem.textContent = '✕';
+    rem.addEventListener('click', () => { removeSplitRow(i); });
+    if(splitRows.length < 2) rem.style.visibility = 'hidden';
+
+    row.appendChild(sel);
+    row.appendChild(rm);
+    row.appendChild(inp);
+    row.appendChild(rem);
+    wrap.appendChild(row);
+  });
+  // Show/hide add split button
+  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= CATEGORIES.length);
+}
+
+function updateSplitBalance(){
+  const total = parseMoney(amountStr);
+  const sum = splitRows.reduce((a, r) => a + r.amount, 0);
+  const remaining = total - sum;
+  const el = $('split-balance');
+  el.classList.remove('hidden', 'ok', 'over');
+  if(splitRows.length === 0){ el.textContent = ''; el.classList.add('hidden'); return; }
+  if(Math.abs(remaining) < 0.01){
+    el.textContent = '✓ Balanced';
+    el.classList.add('ok');
+  }else if(remaining > 0){
+    el.textContent = `RM ${remaining.toFixed(2)} remaining to allocate`;
+  }else{
+    el.textContent = `RM ${Math.abs(remaining).toFixed(2)} over total`;
+    el.classList.add('over');
+  }
+}
+
+function addSplitRow(){
+  if(splitRows.length >= CATEGORIES.length) return;
+  const used = splitRows.map(r => r.category);
+  const avail = CATEGORIES.find(c => !used.includes(c)) || 'Others';
+  splitRows.push({ category: avail, amount: 0 });
+  buildSplitRows();
+  updateSplitBalance();
+}
+
+function removeSplitRow(idx){
+  if(splitRows.length <= 1) return;
+  splitRows.splice(idx, 1);
+  buildSplitRows();
+  updateSplitBalance();
+}
+
+function resetSplit(){
+  splitActive = false;
+  splitRows = [];
+  const panel = $('split-panel');
+  const info = $('split-info');
+  const btn = $('btn-split-toggle');
+  if(panel){ panel.classList.add('hidden'); }
+  if(info){ info.classList.add('hidden'); }
+  if(btn){ btn.textContent = '⚡ Split'; btn.style.background = ''; btn.style.color = ''; }
+}
 
 // expense-for input + suggest
 $('add-expense-for').addEventListener('input',()=>{
