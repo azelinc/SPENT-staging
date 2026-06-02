@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.7';
+const APP_VER = 'v2.8.8';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -940,7 +940,8 @@ function toggleSplit(){
     // Dim amount display — sum of splits drives total
     $('amount-display').style.opacity = '0.5';
     // Init with 2 rows using current category, split equally
-    const cat = selectedCat || 'Food & Dining';
+    const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+    const cat = selectedCat && cats.includes(selectedCat) ? selectedCat : (cats[0] || 'Others');
     const total = parseMoney(amountStr);
     if(total <= 0){ splitRows = []; }
     else {
@@ -974,7 +975,11 @@ function buildSplitRows(){
     // Category select
     const sel = document.createElement('select');
     sel.className = 'split-cat';
-    CATEGORIES.forEach(c => {
+    let cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+    if(categoryOrder && categoryOrder.length){
+      cats.sort((a,b) => (categoryOrder.indexOf(a)===-1?999:categoryOrder.indexOf(a)) - (categoryOrder.indexOf(b)===-1?999:categoryOrder.indexOf(b)));
+    }
+    cats.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c;
       opt.textContent = c;
@@ -1018,12 +1023,12 @@ function buildSplitRows(){
     row.appendChild(rem);
     wrap.appendChild(row);
   });
-  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= CATEGORIES.length);
+  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS).length);
 }
 
 function fillSubSelect(sel, cat, selected){
   sel.innerHTML = '<option value="">—</option>';
-  const subs = getSubs(cat);
+  const subs = (categorySubs || DEFAULT_CATEGORY_SUBS)[cat] || [];
   subs.forEach(s => {
     const opt = document.createElement('option');
     opt.value = s;
@@ -1056,9 +1061,10 @@ function updateSplitTotal(){
 }
 
 function addSplitRow(){
-  if(splitRows.length >= CATEGORIES.length) return;
+  const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+  if(splitRows.length >= cats.length) return;
   const used = splitRows.map(r => r.category);
-  const avail = CATEGORIES.find(c => !used.includes(c)) || 'Others';
+  const avail = cats.find(c => !used.includes(c)) || 'Others';
   splitRows.push({ category: avail, subCategory: '', amount: 0 });
   buildSplitRows();
   updateSplitTotal();
