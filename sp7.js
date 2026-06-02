@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.5';
+const APP_VER = 'v2.8.6';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -47,6 +47,7 @@ const DEFAULT_ACCOUNTS = {
   'Others': '#94a3b8'
 };
 let accountColors = {}; // loaded from Firebase per-user
+let hiddenAccounts = {}; // { name: true } for hidden payment methods
 const DEFAULT_SUBCATEGORIES = {
   'Food & Dining': ['Lunch','Dinner','Breakfast','Snack','Drinks'],
   'Groceries': ['Weekly','Top-up','Bulk'],
@@ -256,16 +257,20 @@ function loadOwnerLinks(ownerUid){
 }
 
 function loadPaymentMethods(uid){
-  return db.ref(`users/${uid}/settings/accounts`).once('value').then(s=>{
-    const val = s.val();
-    if(val && typeof val === 'object'){
-      accountColors = val;
-      return Object.keys(val);
+  return db.ref(`users/${uid}/settings`).once('value').then(s=>{
+    const settings = s.val() || {};
+    const accounts = settings.accounts;
+    hiddenAccounts = settings.hiddenAccounts || {};
+    if(accounts && typeof accounts === 'object'){
+      accountColors = accounts;
+      return Object.keys(accounts).filter(name => !hiddenAccounts[name]);
     }
     accountColors = {};
+    hiddenAccounts = {};
     return Object.keys(DEFAULT_ACCOUNTS);
   }).catch(()=>{
     accountColors = {};
+    hiddenAccounts = {};
     return Object.keys(DEFAULT_ACCOUNTS);
   });
 }
@@ -1317,7 +1322,9 @@ function renderAccountsList(addNew, useDefaults){
   const names = Object.keys(src);
   let html = names.map((name,i)=>{
     const color = src[name] || '#64748b';
+    const hidden = hiddenAccounts[name];
     return `<div class="acc-row" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input type="checkbox" class="acc-show" ${hidden ? '' : 'checked'} style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0" title="Show">
       <input type="color" class="acc-color" value="${color}"
         style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
       <input class="acc-name" value="${esc(name)}"
@@ -1327,6 +1334,7 @@ function renderAccountsList(addNew, useDefaults){
   }).join('');
   if(addNew){
     html += `<div class="acc-row" style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+      <input type="checkbox" class="acc-show" checked style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0" title="Show">
       <input type="color" class="acc-color" value="#10b981"
         style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
       <input class="acc-name" value="" placeholder="New account"
@@ -1348,19 +1356,25 @@ $('btn-save-accounts').addEventListener('click',()=>{
   if(!currentUser) return;
   const rows = document.querySelectorAll('#accounts-list .acc-row');
   const obj = {};
+  const hidden = {};
   let validCount = 0;
   rows.forEach(row=>{
     const name = row.querySelector('.acc-name').value.trim();
     const color = row.querySelector('.acc-color').value;
-    if(name){ obj[name] = color; validCount++; }
+    const shown = row.querySelector('.acc-show').checked;
+    if(name){ obj[name] = color; if(!shown) hidden[name] = true; validCount++; }
   });
   if(validCount===0){
     $('accounts-status').textContent = '❌ At least one account required';
     return;
   }
-  db.ref(`users/${currentUser.uid}/settings/accounts`).set(obj).then(()=>{
+  const updates = {};
+  updates[`users/${currentUser.uid}/settings/accounts`] = obj;
+  updates[`users/${currentUser.uid}/settings/hiddenAccounts`] = hidden;
+  db.ref().update(updates).then(()=>{
     accountColors = obj;
-    currentPayMethods = Object.keys(obj);
+    hiddenAccounts = hidden;
+    currentPayMethods = Object.keys(obj).filter(n => !hidden[n]);
     $('accounts-status').textContent = '✅ Saved';
     setTimeout(()=>{$('accounts-status').textContent='';}, 2000);
   }).catch(e=>{
@@ -1370,6 +1384,7 @@ $('btn-save-accounts').addEventListener('click',()=>{
 
 $('btn-reset-accounts').addEventListener('click',()=>{
   accountColors = {};
+  hiddenAccounts = {};
   renderAccountsList(false, true);
   $('accounts-status').textContent = 'Defaults restored — save to confirm';
 });
