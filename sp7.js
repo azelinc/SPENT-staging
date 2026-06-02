@@ -806,6 +806,7 @@ $('btn-save').addEventListener('click',()=>{
       loadSettings(currentUser.uid).then(settings=>{
         const status = !settings.ownerUid ? 'approved' : 'pending';
         const saves = validRows.map(r => {
+          const splitLabel = r.subCategory ? r.category + ' - ' + r.subCategory : r.category;
           const exp = {
             category: r.category,
             amount: r.amount,
@@ -816,8 +817,9 @@ $('btn-save').addEventListener('click',()=>{
             status,
             type: 'expense',
             splitGroup,
-            splitPart: r.category
+            splitPart: splitLabel
           };
+          if(r.subCategory) exp.subCategory = r.subCategory;
           return saveExpense(currentUser.uid, exp);
         });
         Promise.all(saves).then(()=>{
@@ -887,11 +889,12 @@ function toggleSplit(){
     btn.textContent = '⚡ Split ON';
     btn.style.background = 'var(--accent)';
     btn.style.color = '#fff';
-    // Init with 2 rows using current selected category
+    // Init with 2 rows using current selected category & sub
     const cat = selectedCat || 'Food & Dining';
+    const sub = selectedSub || '';
     const total = parseMoney(amountStr);
     if(total <= 0){ splitRows = []; }
-    else { splitRows = [{ category: cat, amount: (total/2) }, { category: 'Others', amount: (total/2) }]; }
+    else { splitRows = [{ category: cat, subCategory: sub, amount: (total/2) }, { category: 'Others', subCategory: '', amount: (total/2) }]; }
     buildSplitRows();
     updateSplitBalance();
   }else{
@@ -904,23 +907,41 @@ function toggleSplit(){
   }
 }
 
+function getSplitCatOpts(){
+  // Returns flat list of {category, subCategory, label} from the same source as chip system
+  const src = categorySubs || DEFAULT_CATEGORY_SUBS;
+  const opts = [];
+  Object.keys(src).forEach(c => {
+    const subs = src[c];
+    if(subs && subs.length > 0){
+      subs.forEach(s => opts.push({ category: c, subCategory: s, label: c + ' - ' + s }));
+    }else{
+      opts.push({ category: c, subCategory: '', label: c });
+    }
+  });
+  return opts;
+}
+
 function buildSplitRows(){
   const wrap = $('split-rows');
   wrap.innerHTML = '';
+  const opts = getSplitCatOpts();
   splitRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'split-row';
     // Category select
     const sel = document.createElement('select');
-    CATEGORIES.forEach(c => {
+    opts.forEach(o => {
       const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      if(c === r.category) opt.selected = true;
+      opt.value = o.category + '||' + o.subCategory;
+      opt.textContent = o.label;
+      if(o.category === r.category && o.subCategory === (r.subCategory || '')) opt.selected = true;
       sel.appendChild(opt);
     });
     sel.addEventListener('change', () => {
-      splitRows[i].category = sel.value;
+      const parts = sel.value.split('||');
+      splitRows[i].category = parts[0];
+      splitRows[i].subCategory = parts[1] || '';
       updateSplitBalance();
     });
     // RM prefix
@@ -952,7 +973,7 @@ function buildSplitRows(){
     wrap.appendChild(row);
   });
   // Show/hide add split button
-  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= CATEGORIES.length);
+  $('btn-add-split-row').classList.toggle('hidden', splitRows.length >= opts.length);
 }
 
 function updateSplitBalance(){
@@ -974,10 +995,12 @@ function updateSplitBalance(){
 }
 
 function addSplitRow(){
-  if(splitRows.length >= CATEGORIES.length) return;
-  const used = splitRows.map(r => r.category);
-  const avail = CATEGORIES.find(c => !used.includes(c)) || 'Others';
-  splitRows.push({ category: avail, amount: 0 });
+  const opts = getSplitCatOpts();
+  if(splitRows.length >= opts.length) return;
+  const used = splitRows.map(r => r.category + '||' + (r.subCategory||''));
+  const avail = opts.find(o => !used.includes(o.category + '||' + o.subCategory));
+  if(!avail) return;
+  splitRows.push({ category: avail.category, subCategory: avail.subCategory, amount: 0 });
   buildSplitRows();
   updateSplitBalance();
 }
