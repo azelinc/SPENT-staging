@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.4';
+const APP_VER = 'v2.8.5';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -778,6 +778,41 @@ $('btn-save').addEventListener('click',()=>{
   const amount=parseMoney(amountStr);
   const payment = $('add-payment').value || 'Cash';
   const notes = $('add-remarks').value.trim();
+
+  // Split mode — categories are in split rows, skip single-category validations
+  if(splitActive){
+    const ts = Date.now();
+    const useDate = $('add-date').value || fmtDate(now());
+    const validRows = splitRows.filter(r => r.amount > 0 && r.category);
+    if(validRows.length < 2){ alert('Need at least 2 split parts with amounts'); return; }
+    const splitSum = validRows.reduce((a,r) => a + r.amount, 0);
+    const splits = validRows.map(r => {
+      const s = { category: r.category, amount: r.amount };
+      if(r.subCategory) s.subCategory = r.subCategory;
+      return s;
+    });
+    loadSettings(currentUser.uid).then(settings=>{
+      const expense = {
+        category: splits[0].category,
+        amount: splitSum,
+        payment,
+        notes: notes || 'Split',
+        date: useDate,
+        timestamp: ts,
+        status: !settings.ownerUid ? 'approved' : 'pending',
+        type: 'expense',
+        splits
+      };
+      saveExpense(currentUser.uid, expense).then(()=>{
+        lastPayment = payment;
+        resetSplit();
+        showScreen('dash-screen');
+        refreshDash();
+      });
+    });
+    return;
+  }
+
   if(!category){ alert('Select a category'); return; }
   if(amount<=0){ alert('Enter amount'); return; }
 
@@ -798,39 +833,6 @@ $('btn-save').addEventListener('click',()=>{
     // CREATE MODE
     const ts = Date.now();
     const useDate = $('add-date').value || fmtDate(now());
-
-    if(splitActive){
-      // SPLIT MODE — single record with splits array
-      const validRows = splitRows.filter(r => r.amount > 0 && r.category);
-      if(validRows.length < 2){ alert('Need at least 2 split parts with amounts'); return; }
-      const splitSum = validRows.reduce((a,r) => a + r.amount, 0);
-      // Build splits array
-      const splits = validRows.map(r => {
-        const s = { category: r.category, amount: r.amount };
-        if(r.subCategory) s.subCategory = r.subCategory;
-        return s;
-      });
-      loadSettings(currentUser.uid).then(settings=>{
-        const expense = {
-          category: splits[0].category,
-          amount: splitSum,
-          payment,
-          notes: notes || 'Split',
-          date: useDate,
-          timestamp: ts,
-          status: !settings.ownerUid ? 'approved' : 'pending',
-          type: 'expense',
-          splits
-        };
-        saveExpense(currentUser.uid, expense).then(()=>{
-          lastPayment = payment;
-          resetSplit();
-          showScreen('dash-screen');
-          refreshDash();
-        });
-      });
-      return;
-    }
 
     const expense = {
       category, amount, payment, notes,
