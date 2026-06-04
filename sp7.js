@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.10';
+const APP_VER = 'v2.8.11';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -1646,6 +1646,25 @@ function togglePaid(uid, billId, monthKey, isPaid){
     ? billsRef(uid).child(billId).child('paidMonths').child(monthKey).remove()
     : billsRef(uid).child(billId).child('paidMonths').child(monthKey).set(true);
   promise.then(() => {
+    // Auto-create expense when marking as paid and bill has account+category+amount
+    if(!isPaid){
+      billsRef(uid).child(billId).once('value').then(snap => {
+        const bill = snap.val();
+        if(bill && bill.account && bill.category && bill.amount){
+          saveExpense(uid, {
+            category: bill.category,
+            amount: bill.amount,
+            payment: bill.account,
+            subCategory: bill.subCategory || '',
+            notes: (bill.name || 'Bill') + ' (Auto)',
+            date: fmtDate(now()),
+            timestamp: Date.now(),
+            status: 'approved',
+            type: 'expense'
+          });
+        }
+      });
+    }
     const p = renderBills();
     updateBillBadge();
     // Restore scroll after renderBills has finished its async DOM rebuild
@@ -1816,6 +1835,7 @@ function renderBills(){
           <div style="flex:1;min-width:0">
             <span class="item-name">${esc(b.name)}</span>
             <span class="item-meta">${metaParts.join(' · ')}</span>
+            ${b.account && b.category ? '<span class="item-meta" style="font-size:.65rem;opacity:.6">'+esc(b.account)+' · '+esc(b.category)+(b.subCategory?' · '+esc(b.subCategory):'')+'</span>' : ''}
           </div>
           ${isRecentlyUpdated(b.emailUpdatedAt) ? '<span class="bill-updated-badge">Updated</span>' : ''}${b.amount ? '<span class="bill-amount">RM'+Number(b.amount).toFixed(2)+'</span>' : ''}
           <button class="btn-ghost btn-xs bill-edit-btn" title="Edit">✎</button>
@@ -1939,8 +1959,41 @@ function openBillModal(mode, bill){
     });
   }
 
+  // Populate account dropdown
+  loadPaymentMethods(currentUser.uid).then(accts => {
+    const sel = $('bill-account');
+    const saved = bill && bill.account ? bill.account : '';
+    sel.innerHTML = '<option value="">— None —</option>' + accts.map(a => `<option value="${a}"${a===saved?' selected':''}>${a}</option>`).join('');
+  });
+
+  // Populate category dropdown + subcategory
+  loadCategorySubs().then(() => {
+    const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
+    const catSel = $('bill-category');
+    const savedCat = bill && bill.category ? bill.category : '';
+    catSel.innerHTML = '<option value="">— None —</option>' + cats.map(c => `<option value="${c}"${c===savedCat?' selected':''}>${c}</option>`).join('');
+    // Populate subcategory based on selected category
+    fillBillSubCat(savedCat, bill && bill.subCategory ? bill.subCategory : '');
+  });
+  // Wire category change → subcategory
+  $('bill-category').onchange = function(){
+    fillBillSubCat(this.value, '');
+  };
+
   $('bill-modal').classList.remove('hidden');
   setTimeout(()=>$('bill-name').focus(), 100);
+}
+
+function fillBillSubCat(cat, selected){
+  const field = $('bill-subcat-field');
+  const sel = $('bill-subcategory');
+  if(!cat || !(categorySubs||{})[cat] || !categorySubs[cat].length){
+    field.style.display = 'none';
+    return;
+  }
+  field.style.display = '';
+  const subs = categorySubs[cat] || [];
+  sel.innerHTML = '<option value="">—</option>' + subs.map(s => `<option value="${s}"${s===selected?' selected':''}>${s}</option>`).join('');
 }
 
 function closeBillModal(){
@@ -1974,6 +2027,12 @@ function saveBillHandler(){
   // Backlog offset: save as relative adjustment (can be negative)
   const backlogVal = $('bill-backlog').value.trim();
   const data = { name, amount, dueDay, reminderDays, active, updatedAt: firebase.database.ServerValue.TIMESTAMP };
+  const acct = $('bill-account').value;
+  const cat = $('bill-category').value;
+  const sub = $('bill-subcategory').value;
+  if(acct) data.account = acct;
+  if(cat) data.category = cat;
+  if(sub) data.subCategory = sub;
   if(backlogVal !== ''){
     const entered = parseInt(backlogVal) || 0;
     const currentMk = editingBill ? billMonthKey(editingBill) : billMonthKey({dueDay});
