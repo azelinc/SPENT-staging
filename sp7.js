@@ -1403,7 +1403,7 @@ function renderAccountsList(addNew, useDefaults){
       <input type="color" class="acc-color" value="${color}"
         style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
       <input class="acc-name" value="${esc(name)}"
-        style="flex:1;background:#0b1221;border:1px solid #334155;border-radius:4px;color:#f8fafc;font-size:.82rem;padding:.3rem .5rem">
+        style="flex:1;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--input-text);font-size:.82rem;padding:.3rem .5rem">
       <button class="acc-del" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:2px 6px">×</button>
     </div>`;
   }).join('');
@@ -1413,7 +1413,7 @@ function renderAccountsList(addNew, useDefaults){
       <input type="color" class="acc-color" value="#10b981"
         style="width:30px;height:30px;border:none;border-radius:4px;cursor:pointer;padding:0;background:transparent">
       <input class="acc-name" value="" placeholder="New account"
-        style="flex:1;background:#0b1221;border:1px solid #334155;border-radius:4px;color:#f8fafc;font-size:.82rem;padding:.3rem .5rem">
+        style="flex:1;background:var(--input-bg);border:1px solid var(--input-border);border-radius:4px;color:var(--input-text);font-size:.82rem;padding:.3rem .5rem">
       <button class="acc-del" style="background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:.9rem;padding:2px 6px">×</button>
     </div>`;
   }
