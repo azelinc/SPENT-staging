@@ -670,7 +670,7 @@ html, body {
 }
 .bills-edit-mode .bill-edit-btn { display: inline-block; }
 .bill-edit-btn:hover { opacity: 1; }
-#btn-bill-edit-mode.active { background: var(--accent-1); color: #fff; }
+#btn-bill-edit-mode.active { background: var(--accent); color: #fff; }
 .bill-amount {
   font-size: 0.5rem;
   font-weight: 600;
