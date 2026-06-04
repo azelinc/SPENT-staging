@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.12';
+const APP_VER = 'v2.8.13';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -98,6 +98,9 @@ function fmtDateDisplay(iso){
 function fmtMoney(n){ return 'RM '+n.toFixed(2); }
 function parseMoney(s){ const v=parseFloat(s); return isNaN(v)?0:v; }
 function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function applyTheme(theme){
+  document.documentElement.classList.toggle('light-mode', theme === 'light');
+}
 function loadCategorySubs(){
   return db.ref('config/categorySubs').once('value').then(s=>{
     categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
@@ -194,6 +197,7 @@ auth.onAuthStateChanged(user=>{
       Promise.all([loadUserProfile(user.uid), loadSettings(user.uid)]).then(([profile, settings])=>{
         currentUser = { uid:user.uid, name:profile?.name||user.displayName||'User', email:user.email };
         isSubAccount = !!settings.ownerUid;
+        applyTheme(settings.theme || 'dark');
         $('dash-greeting').textContent = 'Hello, '+currentUser.name;
         showScreen('dash-screen');
         refreshDash();
@@ -1320,6 +1324,12 @@ function renderSettings(){
     loadPaymentMethods(uid).then(()=>{
       renderAccountsList();
     });
+
+    // Show current theme selection
+    const currentTheme = settings.theme || 'dark';
+    $('theme-chips').querySelectorAll('.tile').forEach(t=>{
+      t.classList.toggle('on', t.dataset.theme === currentTheme);
+    });
   });
 
   // Owner panels
@@ -1493,6 +1503,18 @@ $('btn-export').addEventListener('click',()=>{
     a.download = `spent_${profile.name}_${fmtDate(now())}.json`;
     a.click();
   });
+});
+
+// Theme chips (single-select)
+$('theme-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.tile');
+  if(!chip) return;
+  const theme = chip.dataset.theme;
+  if(!theme) return;
+  $('theme-chips').querySelectorAll('.tile').forEach(t => t.classList.remove('on'));
+  chip.classList.add('on');
+  applyTheme(theme);
+  if(currentUser) saveSettings(currentUser.uid, { theme });
 });
 
 $('btn-clear').addEventListener('click',()=>{
