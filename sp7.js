@@ -476,7 +476,24 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
+    // Build parent→children map for reallocation & reimbursement grouping
+    const parentChildren = {};
+    const skipChild = {};
+    recentList.forEach(ce => {
+      let pid = null;
+      if (ce.reimburses) pid = ce.reimburses;
+      else if (ce._reallocationSource) {
+        const parts = ce._reallocationSource.split('/');
+        pid = parts[parts.length - 1];
+      }
+      if (pid) {
+        skipChild[ce.id] = true;
+        if (!parentChildren[pid]) parentChildren[pid] = [];
+        parentChildren[pid].push(ce);
+      }
+    });
     recentList.forEach(e=>{
+      if (skipChild[e.id]) return;
       const isPartner = e._uid !== currentUser.uid;
       const tag = isPartner ? `<span class="partner-tag">${esc(e._user)}</span>` : '';
       const statusLabel = e.status==='pending' ? ' <span style="color:var(--danger);font-size:0.7rem">[PENDING]</span>' : '';
@@ -519,6 +536,29 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
       }
       recent.appendChild(item);
       item._expense = e;  // store full expense for approve handler
+      // Render children (reallocations, reimbursements) under this parent
+      const myId = e.id;
+      if (parentChildren[myId]) {
+        parentChildren[myId].forEach(child => {
+          const childItem = document.createElement('div');
+          childItem.className = 'item child';
+          childItem.style.cursor = 'default';
+          childItem.dataset.uid = child._uid;
+          childItem.dataset.id = child.id;
+          const childTag = child.isReallocation ? ' <span class="adj-tag">↻ Realloc</span>' : ' <span class="adj-tag">↩ Reimburse</span>';
+          childItem.innerHTML = `
+            <div class="item-left">
+              <div class="item-name-row">
+                <span class="item-name">${esc(child.category + (child.subCategory ? ' - ' + child.subCategory : ''))} ${''}${childTag}</span>
+                ${child.notes ? '<span class="item-remarks">' + esc(child.notes) + '</span>' : ''}
+              </div>
+              <span class="item-meta">${child.payment || 'Cash'} · ${child.date}</span>
+            </div>
+            <span class="item-amount adj">${fmtMoney(child.amount)}</span>
+          `;
+          recent.appendChild(childItem);
+        });
+      }
     });
 
     // Inline approve listeners

@@ -206,6 +206,22 @@ html, body {
   opacity: 0.7;
 }
 
+/* Child items (reallocations, reimbursements) nested under parent */
+.item.child {
+  margin-left: 28px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border);
+  background: rgba(30, 41, 59, 0.3);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.item.child .item-name {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+.item.child .item-amount {
+  font-size: 0.9rem;
+}
+
 .adj-tag {
   display: inline-block;
   background: var(--surface-2);
