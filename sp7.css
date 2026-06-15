@@ -479,6 +479,21 @@ html, body {
   margin-top: 12px;
 }
 
+.btn-ghost.btn-lg {
+  padding: 16px 24px;
+  font-size: 1.1rem;
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-ghost.btn-lg:active { background: rgba(59,130,246,0.1); }
+
 /* MODAL */
 .modal-overlay {
   position: fixed;
