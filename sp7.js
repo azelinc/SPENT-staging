@@ -428,8 +428,8 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
     });
   }
   
-  const todaySum = heroData.filter(e=>e.date===today && e.type!=='income').reduce((a,e)=>a+e.amount,0);
-  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix) && e.type!=='income').reduce((a,e)=>a+e.amount,0);
+  const todaySum = heroData.filter(e=>e.date===today && e.type!=='income').reduce((a,e)=> a + (e.reallocationAdjustment ? -e.amount : e.amount), 0);
+  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix) && e.type!=='income').reduce((a,e)=> a + (e.reallocationAdjustment ? -e.amount : e.amount), 0);
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
 
@@ -495,20 +495,22 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
         inlineActions = `<span class="inline-approve" data-id="${esc(e.id)}" data-uid="${esc(e._uid)}">✓ Approve</span>`;
       }
 
+      const adjTag = e.reallocationAdjustment ? ' <span class="adj-tag">↻ Realloc</span>' : '';
+
       item.innerHTML = `
         <div class="item-left">
           <div class="item-name-row">
-            <span class="item-name">${esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''))}${tag}${statusLabel}</span>
-            ${e.notes ? `<span class="item-remarks">${esc(e.notes)}</span>` : ''}
+            <span class="item-name">${esc(e.category + (e.subCategory ? ' - ' + e.subCategory : ''))}${tag}${statusLabel}${adjTag}</span>
+            ${e.notes ? '<span class="item-remarks">' + esc(e.notes) + '</span>' : ''}
             ${e.type === 'income' ? '<span class="item-income-tag">Income</span>' : ''}
             ${inlineActions}
           </div>
           <span class="item-meta">${e.payment || 'Cash'} · ${e.date}</span>
         </div>
-        <span class="item-amount${e.type==='income' ? ' income' : ''}">${e.type==='income' ? '**' : fmtMoney(e.amount)}</span>
+        <span class="item-amount${e.type==='income' ? ' income' : ''}${e.reallocationAdjustment ? ' adj' : ''}">${e.type==='income' ? '**' : e.reallocationAdjustment ? '-RM ' + e.amount.toFixed(2) : fmtMoney(e.amount)}</span>
       `;
-      // Tap to edit
-      if(canEdit){
+      // Tap to edit (not for adjustment entries)
+      if(canEdit && !e.reallocationAdjustment){
         item.addEventListener('click',(ev)=>{
           // Don't edit if tapped on inline approve button
           if(ev.target.classList.contains('inline-approve')) return;
@@ -1098,9 +1100,8 @@ $('btn-reallocate-confirm').addEventListener('click',()=>{
   const newDate = $('reallocate-date').value || fmtDate(now());
   const notes = $('reallocate-notes').value.trim();
   const ts = Date.now();
-  const newAmount = src.amount - amount;
 
-  // Build the new expense
+  // Build the new expense (e.g. Haircut RM20)
   const newExpense = {
     category: reallocateSelCat,
     subCategory: reallocateSelSub || null,
@@ -1114,17 +1115,28 @@ $('btn-reallocate-confirm').addEventListener('click',()=>{
     _reallocatedFrom: src._uid + '/' + src.id
   };
 
-  // Save the new expense, then update the original
+  // Build the adjustment entry (e.g. Food -RM20 on original date)
+  // Stored as positive amount with a flag — subtracted in totals
+  const adjExpense = {
+    category: src.category,
+    subCategory: src.subCategory || null,
+    amount: amount,
+    payment: src.payment || 'Cash',
+    notes: '↻ Reallocated to ' + reallocateSelCat + (reallocateSelSub ? ' - ' + reallocateSelSub : ''),
+    date: src.date,
+    timestamp: ts,
+    status: 'approved',
+    type: 'expense',
+    reallocationAdjustment: true,
+    _reallocationSource: src._uid + '/' + src.id
+  };
+
+  // Save BOTH entries (parallel)
   const uid = currentUser.uid;
-  saveExpense(uid, newExpense).then(newKey=>{
-    if(newAmount <= 0){
-      // Full amount reallocated → delete original
-      return deleteExpense(src._uid, src.id).then(()=> newKey);
-    }else{
-      // Partial reallocate → reduce original
-      return updateExpense(src._uid, src.id, { amount: newAmount }).then(()=> newKey);
-    }
-  }).then(()=>{
+  Promise.all([
+    saveExpense(uid, newExpense),
+    saveExpense(uid, adjExpense)
+  ]).then(()=>{
     closeReallocateModal();
     editTarget = null;
     showScreen('dash-screen');

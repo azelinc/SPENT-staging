@@ -201,6 +201,23 @@ html, body {
   color: var(--success);
 }
 
+.item-amount.adj {
+  color: var(--danger);
+  opacity: 0.7;
+}
+
+.adj-tag {
+  display: inline-block;
+  background: var(--surface-2);
+  color: var(--muted);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-left: 4px;
+  letter-spacing: 0.3px;
+}
+
 .amount-display.income {
   color: var(--success);
 }
