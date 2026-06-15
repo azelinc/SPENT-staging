@@ -1126,7 +1126,7 @@ $('btn-reallocate-confirm').addEventListener('click',()=>{
     date: src.date,
     timestamp: ts,
     status: 'approved',
-    type: 'expense',
+    type: 'reallocation',
     reallocationAdjustment: true,
     _reallocationSource: src._uid + '/' + src.id
   };
