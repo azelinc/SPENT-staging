@@ -17,17 +17,16 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.5';
+const APP_VER = 'v2.7.6';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
 const CATEGORIES = [
-  'Food & Dining','Groceries','Transport','Shopping',
+  'Food','Transport','Shopping',
   'Utilities','Entertainment','Health & Wellness','Home','Others'
 ];
 const DEFAULT_CATEGORY_SUBS = {
-  'Food & Dining': ['Lunch', 'Dinner', 'Supper', 'Snack', 'Breakfast', 'Teh', 'Kopi'],
-  'Groceries': ['Weekly Top-up', 'Bulk', 'Emergency', '99 Speedmart'],
+  'Food': ['Lunch', 'Dinner', 'Supper', 'Snack', 'Breakfast', 'Teh', 'Kopi', 'Groceries'],
   'Transport': ['Fuel', 'Toll', 'Parking', 'Grab', 'Public', 'JPJ'],
   'Shopping': ['Online', 'Mall', 'Essentials', 'Big Purchase'],
   'Utilities': ['TNB', 'Unifi', 'Water', 'Phone', 'Astro'],
@@ -48,8 +47,7 @@ const DEFAULT_ACCOUNTS = {
 };
 let accountColors = {}; // loaded from Firebase per-user
 const DEFAULT_SUBCATEGORIES = {
-  'Food & Dining': ['Lunch','Dinner','Breakfast','Snack','Drinks'],
-  'Groceries': ['Weekly','Top-up','Bulk'],
+  'Food': ['Lunch','Dinner','Breakfast','Snack','Drinks','Groceries'],
   'Transport': ['Fuel','Toll','Parking','Ride'],
   'Shopping': ['Clothing','Electronics','Home','Personal'],
   'Utilities': ['Electric','Water','Internet','Mobile'],
@@ -59,8 +57,7 @@ const DEFAULT_SUBCATEGORIES = {
   'Others': []
 };
 const QUICK_TILES = [
-  { category: 'Food & Dining' },
-  { category: 'Groceries' },
+  { category: 'Food' },
   { category: 'Transport' },
   { category: 'Shopping' },
   { category: 'Utilities' },
