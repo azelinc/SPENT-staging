@@ -180,6 +180,7 @@ html, body {
 }
 .tile:hover, .tile:active { border-color: var(--accent); }
 .tile.on { border-color: var(--accent); background: rgba(59,130,246,0.15); }
+.more-tile { border-color: var(--accent); color: var(--accent); background: transparent; border-style: dashed; font-size: 0.8rem; min-width: 80px; }
 
 /* LIST */
 .list { display: flex; flex-direction: column; gap: 8px; }

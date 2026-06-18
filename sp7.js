@@ -79,6 +79,16 @@ let selectedCat = '';
 let selectedSub = '';
 let isIncomeEdit = false;
 let showAllRecent = false;
+// Frequency tracking for smart chips
+let catFreq = JSON.parse(localStorage.getItem('sp7_catFreq')||'{}');
+let payFreq = JSON.parse(localStorage.getItem('sp7_payFreq')||'{}');
+let showAllCats = false;
+let showAllPay = false;
+function saveCatFreq(){ try{ localStorage.setItem('sp7_catFreq',JSON.stringify(catFreq)); }catch(e){} }
+function savePayFreq(){ try{ localStorage.setItem('sp7_payFreq',JSON.stringify(payFreq)); }catch(e){} }
+function getTop(arr, freq, n){
+  return [...arr].sort((a,b)=>(freq[b]||0)-(freq[a]||0)).slice(0,n);
+}
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -603,7 +613,10 @@ function getSubs(cat){
 function buildCatChips(selected){
   const wrap = $('cat-chips');
   wrap.innerHTML = '';
-  CATEGORIES.forEach(cat => {
+  const top4 = getTop(CATEGORIES, catFreq, 4);
+  const hasMore = CATEGORIES.length > 4 && !showAllCats;
+  const display = showAllCats ? CATEGORIES : top4;
+  display.forEach(cat => {
     const el = document.createElement('div');
     el.className = cat === selected ? 'tile on' : 'tile';
     el.textContent = cat;
@@ -623,6 +636,19 @@ function buildCatChips(selected){
     });
     wrap.appendChild(el);
   });
+  if(hasMore){
+    const more = document.createElement('div');
+    more.className = 'tile more-tile';
+    more.textContent = `+${CATEGORIES.length - 4} more`;
+    more.addEventListener('click',()=>{ showAllCats = true; buildCatChips(selected); });
+    wrap.appendChild(more);
+  }else if(showAllCats){
+    const less = document.createElement('div');
+    less.className = 'tile more-tile';
+    less.textContent = '← Less';
+    less.addEventListener('click',()=>{ showAllCats = false; buildCatChips(selected); });
+    wrap.appendChild(less);
+  }
 }
 
 function buildSubChips(cat, selected){
@@ -650,6 +676,8 @@ function buildSubChips(cat, selected){
 }
 
 function openAdd(preCategory, preSubCategory){
+  showAllCats = false;
+  showAllPay = false;
   isIncomeEdit = false;
   document.querySelector('.add-title').textContent = 'New Expense';
   $('amount-display').classList.remove('income');
@@ -838,6 +866,9 @@ $('btn-save').addEventListener('click',()=>{
       lastCategory = category;
       lastSubCategory = subCategory;
       lastPayment = payment;
+      catFreq[category] = (catFreq[category]||0) + 1;
+      payFreq[payment] = (payFreq[payment]||0) + 1;
+      saveCatFreq(); savePayFreq();
       editTarget = null;
       showScreen('dash-screen');
       refreshDash();
@@ -863,6 +894,9 @@ $('btn-save').addEventListener('click',()=>{
         lastCategory = category;
         lastSubCategory = subCategory;
         lastPayment = payment;
+        catFreq[category] = (catFreq[category]||0) + 1;
+        payFreq[payment] = (payFreq[payment]||0) + 1;
+        saveCatFreq(); savePayFreq();
         showScreen('dash-screen');
         refreshDash();
       });
@@ -930,11 +964,27 @@ let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
 function buildPayChips(methods, selected){
   currentPayMethods = methods;
   const wrap = $('pay-chips');
-  wrap.innerHTML = methods.map(m => {
+  const top4 = getTop(methods, payFreq, 4);
+  const hasMore = methods.length > 4 && !showAllPay;
+  const display = showAllPay ? methods : top4;
+  wrap.innerHTML = display.map(m => {
     const cls = m === selected ? 'tile on' : 'tile';
     const color = accountColors[m] || DEFAULT_ACCOUNTS[m] || '#64748b';
     return `<div class="${cls}" style="display:inline-flex;align-items:center;gap:4px" data-m="${esc(m)}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span>${esc(m)}</div>`;
   }).join('');
+  if(hasMore){
+    const more = document.createElement('div');
+    more.className = 'tile more-tile';
+    more.textContent = `+${methods.length - 4} more`;
+    more.addEventListener('click',()=>{ showAllPay = true; buildPayChips(methods, selected); });
+    wrap.appendChild(more);
+  }else if(showAllPay && methods.length > 4){
+    const less = document.createElement('div');
+    less.className = 'tile more-tile';
+    less.textContent = '← Less';
+    less.addEventListener('click',()=>{ showAllPay = false; buildPayChips(methods, selected); });
+    wrap.appendChild(less);
+  }
   wrap.querySelectorAll('.tile').forEach(el => {
     el.addEventListener('click', () => {
       wrap.querySelectorAll('.tile').forEach(t => t.classList.remove('on'));
