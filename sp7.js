@@ -69,7 +69,7 @@ let currentUser = null;   // { uid, name, email }
 let amountStr = '';
 let pendingCount = 0;
 let authReady = false;
-let summaryFilter = 'both';
+let summaryFilter = 'me';
 let isSubAccount = false;
 let editTarget = null;    // { uid, id } when editing
 let lastCategory = '';
@@ -396,7 +396,7 @@ function refreshDash(){
 
   loadSettings(uid).then(settings=>{
     isSubAccount = !!settings.ownerUid;
-    summaryFilter = settings.partnerFilter || 'both';
+    summaryFilter = settings.partnerFilter || 'me';
 
     // Load own expenses
     loadExpenses(uid).then(own=>{
@@ -428,7 +428,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
   let heroData = combined;
   const hasPartners = approvedPartners && approvedPartners.length > 0;
   const isOwnerView = hasPartners;
-  if(hasPartners && summaryFilter !== 'both'){
+  if(hasPartners){
     heroData = combined.filter(e => {
       if(summaryFilter === 'me') return e._uid === currentUser.uid;
       if(summaryFilter === 'ibu') return e._uid !== currentUser.uid;
@@ -443,7 +443,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
 
   // Update filter labels on hero blocks (show only if owner has partners)
   if(hasPartners){
-    const filterLabel = summaryFilter==='both' ? 'Both' : summaryFilter==='me' ? 'Me' : 'Ibu';
+    const filterLabel = summaryFilter==='me' ? 'Me' : 'Ibu';
     $('hero-filter').textContent = filterLabel;
     $('hero-filter-month').textContent = filterLabel;
     $('hero-today-block').style.cursor = 'pointer';
@@ -1452,7 +1452,7 @@ function renderSettings(){
     else { $('btn-clear-owner').classList.add('hidden'); }
     
     // Sync saved filter into global state
-    summaryFilter = settings.partnerFilter || 'both';
+    summaryFilter = settings.partnerFilter || 'me';
 
     // Load payment methods / accounts
     loadPaymentMethods(uid).then(()=>{
@@ -1638,7 +1638,7 @@ $('btn-clear').addEventListener('click',()=>{
 
 /* ─── HERO FILTER CLICK ─── */
 /* ─── HERO FILTER CLICK ─── */
-const FILTER_ORDER = ['both','me','ibu'];
+const FILTER_ORDER = ['me','ibu'];
 $('hero-today-block').addEventListener('click',()=>cycleHeroFilter());
 $('hero-month-block').addEventListener('click',()=>cycleHeroFilter());
 
