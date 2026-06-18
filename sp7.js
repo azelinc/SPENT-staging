@@ -666,7 +666,7 @@ function openAdd(preCategory, preSubCategory){
   $('date-detected').textContent = fmtDateDisplay(todayIso);
   $('btn-save').textContent = 'Save';
   $('btn-delete').classList.add('hidden');
-  $('btn-reallocate').classList.add('hidden');
+  $('btn-action').classList.add('hidden');
   $('add-remarks').value = '';
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
@@ -711,7 +711,7 @@ function openEdit(expense){
     $('add-remarks').value = expense.notes || '';
     $('btn-save').textContent = 'Update';
     $('btn-delete').classList.remove('hidden');
-    $('btn-reallocate').classList.remove('hidden');
+    $('btn-action').classList.remove('hidden');
     loadPaymentMethods(expense._uid).then(methods=>{
       const payment = expense.payment || methods[0];
       buildPayChips(methods, payment);
@@ -733,7 +733,7 @@ function openEdit(expense){
   selectedSub = expense.subCategory || '';
   $('btn-save').textContent = 'Update';
   $('btn-delete').classList.remove('hidden');
-  $('btn-reallocate').classList.remove('hidden');
+  $('btn-action').classList.remove('hidden');
   buildCatChips(selectedCat);
   if(selectedCat && getSubs(selectedCat).length > 0){
     $('subcat-field').classList.remove('hidden');
