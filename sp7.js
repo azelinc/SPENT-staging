@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.6';
+const APP_VER = 'v2.7.7';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -78,6 +78,7 @@ let lastPayment = 'Cash';
 let selectedCat = '';
 let selectedSub = '';
 let isIncomeEdit = false;
+let showAllRecent = false;
 
 /* ─── HELPERS ─── */
 function $(id){ return document.getElementById(id); }
@@ -469,7 +470,9 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
     const dateCmp = (b.date||'').localeCompare(a.date||'');
     if(dateCmp !== 0) return dateCmp;
     return (b.timestamp||0)-(a.timestamp||0);
-  }).slice(0,20);
+  });
+  const showCount = showAllRecent ? recentList.length : Math.min(20, recentList.length);
+  const displayList = recentList.slice(0, showCount);
   if(recentList.length===0){
     recent.innerHTML='<div class="item"><div class="item-left"><span class="item-name">No expenses yet</span></div></div>';
   }else{
@@ -489,7 +492,7 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
         parentChildren[pid].push(ce);
       }
     });
-    recentList.forEach(e=>{
+    displayList.forEach(e=>{
       if (skipChild[e.id]) return;
       const isPartner = e._uid !== currentUser.uid;
       const tag = isPartner ? `<span class="partner-tag">${esc(e._user)}</span>` : '';
@@ -557,6 +560,18 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
         });
       }
     });
+
+    // Show More / Show Less toggle
+    if (recentList.length > 20) {
+      const toggleBtn = document.createElement('div');
+      toggleBtn.className = 'show-more-btn';
+      toggleBtn.textContent = showAllRecent ? '▲ Show Less' : '▼ Show More (' + (recentList.length - 20) + ' more)';
+      toggleBtn.addEventListener('click', () => {
+        showAllRecent = !showAllRecent;
+        refreshDash();
+      });
+      recent.appendChild(toggleBtn);
+    }
 
     // Inline approve listeners
     recent.querySelectorAll('.inline-approve').forEach(btn=>{

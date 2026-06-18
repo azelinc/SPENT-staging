@@ -729,3 +729,19 @@ html, body {
   border-top: 1px solid var(--border);
   margin-top: 4px;
 }
+
+/* Show More / Show Less button */
+.show-more-btn {
+  text-align: center;
+  padding: 10px;
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  transition: opacity 0.2s;
+}
+.show-more-btn:hover {
+  opacity: 0.7;
+}
