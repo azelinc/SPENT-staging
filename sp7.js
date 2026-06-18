@@ -658,10 +658,11 @@ function buildSubChips(cat, selected){
   const subs = getSubs(cat);
   back.style.display = 'block';
   back.onclick = () => {
+    showAllCats = false;
     selectedCat = '';
     selectedSub = '';
     $('subcat-field').classList.add('hidden');
-    buildCatChips('');
+    buildCatLevel1('');
   };
   subs.forEach(sub => {
     const el = document.createElement('div');
@@ -702,8 +703,7 @@ function openAdd(preCategory, preSubCategory){
   $('sub-chips').classList.add('hidden');
   selectedCat = bestCat;
   selectedSub = preSubCategory || lastSubCategory || '';
-  buildCatChips(selectedCat);
-  if(selectedCat && getSubs(selectedCat).length > 0){
+  if(bestCat && getSubs(bestCat).length > 0){
     $('subcat-field').classList.remove('hidden');
     buildSubChips(selectedCat, selectedSub);
   } else {
@@ -765,7 +765,6 @@ function openEdit(expense){
   $('btn-save').textContent = 'Update';
   $('btn-delete').classList.remove('hidden');
   $('btn-action').classList.remove('hidden');
-  buildCatChips(selectedCat);
   if(selectedCat && getSubs(selectedCat).length > 0){
     $('subcat-field').classList.remove('hidden');
     buildSubChips(selectedCat, selectedSub);
@@ -792,7 +791,10 @@ function buildCatLevel1(selected){
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
   const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
-  cats.forEach(c=>{
+  const top4 = getTop(cats, catFreq, 4);
+  const hasMore = cats.length > 4 && !showAllCats;
+  const display = showAllCats ? cats : top4;
+  display.forEach(c=>{
     const el = document.createElement('div');
     el.className = 'tile' + (c===selected ? ' on' : '');
     el.textContent = c;
@@ -813,6 +815,19 @@ function buildCatLevel1(selected){
     });
     wrap.appendChild(el);
   });
+  if(hasMore){
+    const more = document.createElement('div');
+    more.className = 'tile more-tile';
+    more.textContent = `+${cats.length - 4} more`;
+    more.addEventListener('click',()=>{ showAllCats = true; buildCatLevel1(selected); });
+    wrap.appendChild(more);
+  }else if(showAllCats){
+    const less = document.createElement('div');
+    less.className = 'tile more-tile';
+    less.textContent = '← Less';
+    less.addEventListener('click',()=>{ showAllCats = false; buildCatLevel1(selected); });
+    wrap.appendChild(less);
+  }
 }
 
 function showCatLevel2(cat, subs){
