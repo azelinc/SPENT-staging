@@ -686,9 +686,11 @@ function openAdd(preCategory, preSubCategory){
   amountStr='';
   $('amount-display').textContent='0.00';
   $('add-expense-for').value = '';
-  const cat = preCategory || lastCategory || '';
-  $('cat-detected').textContent=cat;
-  $('add-category').value = cat;
+  // Pick default category: passed-in, last-used, most frequent, or first
+  const bestCat = preCategory || lastCategory || Object.keys(catFreq).sort((a,b)=>catFreq[b]-catFreq[a])[0] || CATEGORIES[0];
+  const bestPay = lastPayment || Object.keys(payFreq).sort((a,b)=>payFreq[b]-payFreq[a])[0] || 'Cash';
+  $('cat-detected').textContent = bestCat;
+  $('add-category').value = bestCat;
   const todayIso = fmtDate(now());
   $('add-date').value = todayIso;
   $('date-detected').textContent = fmtDateDisplay(todayIso);
@@ -698,7 +700,7 @@ function openAdd(preCategory, preSubCategory){
   $('add-remarks').value = '';
   // Hide level 2, show level 1
   $('sub-chips').classList.add('hidden');
-  selectedCat = preCategory || lastCategory || '';
+  selectedCat = bestCat;
   selectedSub = preSubCategory || lastSubCategory || '';
   buildCatChips(selectedCat);
   if(selectedCat && getSubs(selectedCat).length > 0){
@@ -708,17 +710,18 @@ function openAdd(preCategory, preSubCategory){
     $('subcat-field').classList.add('hidden');
   }
   loadPaymentMethods(currentUser.uid).then(methods=>{
-    const payment = lastPayment || methods[0];
-    buildPayChips(methods, payment);
+    buildPayChips(methods, bestPay);
   });
   loadCategorySubs().then(()=>{
-    buildCatLevel1(cat || 'Others');
+    buildCatLevel1(bestCat);
   });
   buildSuggest();
   showScreen('add-screen');
 }
 
 function openEdit(expense){
+  showAllCats = false;
+  showAllPay = false;
   editTarget = { uid: expense._uid, id: expense.id };
   amountStr = String(expense.amount);
   $('amount-display').textContent = expense.amount.toFixed(2);
