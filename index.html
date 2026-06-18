@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b0f19">
-<!-- v2.7.7 -->
+<!-- v2.7.8 -->
 <title>SPENT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPENT">
-<link rel="stylesheet" href="sp7.css?v=77">
+<link rel="stylesheet" href="sp7.css?v=78">
 </head>
 <body>
 <div id="app">
@@ -132,7 +132,7 @@
       </select>
 
       <button id="btn-save" class="btn-primary btn-lg">Save</button>
-      <button id="btn-reallocate" class="btn-ghost btn-lg hidden">↻ Reallocate</button>
+      <button id="btn-action" class="btn-ghost btn-lg hidden">↻/↩ Action</button>
       <button id="btn-delete" class="btn-danger btn-lg hidden">Delete</button>
     </div>
   </section>
@@ -272,22 +272,24 @@
     </div>
   </div>
 
-  <!-- REALLOCATE MODAL -->
-  <div id="reallocate-modal" class="modal-overlay hidden">
+  <!-- ACTION MODAL (Reimburse / Reallocate) -->
+  <div id="action-modal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <span>Reallocate Expense</span>
-        <button id="btn-reallocate-close" class="btn-ghost btn-sm">✕</button>
+        <span id="action-modal-title">↻/↩ Action</span>
+        <button id="btn-action-close" class="btn-ghost btn-sm">✕</button>
       </div>
       <div class="modal-body">
-        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px">
-          Move part of this expense to a new category with a different date.
-          The original entry stays unchanged. A balancing adjustment entry is created
-          so your totals stay accurate.
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px" id="action-desc">
+          Choose an action for this expense.
         </p>
+        <div class="action-toggle">
+          <button type="button" class="action-pill active" data-action="reimburse">↩ Reimburse</button>
+          <button type="button" class="action-pill" data-action="reallocate">↻ Reallocate</button>
+        </div>
         <div class="field">
-          <label>Move Amount (RM)</label>
-          <div class="amount-display" id="reallocate-amount-display">0.00</div>
+          <label>Amount (RM)</label>
+          <div class="amount-display" id="action-amount-display">0.00</div>
           <div class="numpad">
             <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
             <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
@@ -295,24 +297,28 @@
             <button data-k=".">.</button><button data-k="0">0</button><button data-k="C">C</button>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="action-pay-field">
+          <label>Payment</label>
+          <div id="action-pay-chips" class="tiles"></div>
+        </div>
+        <div class="field" id="action-cat-section" style="display:none">
           <label>New Category</label>
-          <input type="text" id="reallocate-expense-for" placeholder="Search expense..." autocomplete="off">
-          <div id="reallocate-suggest" class="suggest"></div>
-          <div id="reallocate-cat-chips" class="tiles"></div>
-          <div id="reallocate-sub-chips" class="tiles hidden"></div>
-          <div id="reallocate-cat-back" class="back-pill" style="display:none">← Back to categories</div>
+          <input type="text" id="action-expense-for" placeholder="Search expense..." autocomplete="off">
+          <div id="action-suggest" class="suggest"></div>
+          <div id="action-cat-chips" class="tiles"></div>
+          <div id="action-sub-chips" class="tiles hidden"></div>
+          <div id="action-cat-back" class="back-pill" style="display:none">← Back to categories</div>
         </div>
         <div class="field">
           <label>Date</label>
-          <input type="date" id="reallocate-date" class="reallocate-input">
+          <input type="date" id="action-date" class="action-input">
         </div>
-        <div class="field">
+        <div class="field" id="action-notes-field" style="display:none">
           <label>Remarks (optional)</label>
-          <input type="text" id="reallocate-notes" class="reallocate-input" placeholder="Note...">
+          <input type="text" id="action-notes" class="action-input" placeholder="Note...">
         </div>
-        <div id="reallocate-error" style="color:var(--danger);font-size:0.8rem;margin:8px 0;display:none"></div>
-        <button id="btn-reallocate-confirm" class="btn-primary btn-lg">Reallocate</button>
+        <div id="action-error" style="color:var(--danger);font-size:0.8rem;margin:8px 0;display:none"></div>
+        <button id="btn-action-confirm" class="btn-primary btn-lg">Confirm</button>
       </div>
     </div>
   </div>
@@ -327,6 +333,6 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<script src="sp7.js?v=77"></script>
+<script src="sp7.js?v=78"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.7.7';
+const APP_VER = 'v2.7.8';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -977,74 +977,114 @@ $('btn-delete').addEventListener('click',()=>{
   }
 });
 
-/* ─── REALLOCATE ─── */
-let reallocateSrcExpense = null;   // the expense being reallocated from
-let reallocateAmountStr = '';
+/* ─── ACTION (Reimburse / Reallocate) ─── */
+let actionSrcExpense = null;
+let actionAmountStr = '';
+let actionSelCat = '';
+let actionSelSub = '';
+let actionType = 'reimburse'; // 'reimburse' | 'reallocate'
 
-function openReallocateModal(expense){
-  reallocateSrcExpense = expense;
-  reallocateAmountStr = '';
-  $('reallocate-amount-display').textContent = '0.00';
-  $('reallocate-date').value = fmtDate(now());
-  $('reallocate-notes').value = '';
-  $('reallocate-expense-for').value = '';
-  $('reallocate-error').style.display = 'none';
+function openActionModal(expense){
+  actionSrcExpense = expense;
+  actionAmountStr = '';
+  $('action-amount-display').textContent = '0.00';
+  $('action-date').value = fmtDate(now());
+  $('action-notes').value = '';
+  $('action-expense-for').value = '';
+  $('action-error').style.display = 'none';
+  actionType = 'reimburse';
+
+  // Build payment chips
+  loadPaymentMethods(expense._uid || currentUser.uid).then(methods => {
+    const payWrap = $('action-pay-chips');
+    payWrap.innerHTML = '';
+    const pay = expense.payment || methods[0] || 'Cash';
+    methods.forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'tile' + (m === pay ? ' on' : '');
+      el.textContent = m;
+      el.addEventListener('click', () => {
+        payWrap.querySelectorAll('.tile').forEach(t => t.classList.remove('on'));
+        el.classList.add('on');
+      });
+      payWrap.appendChild(el);
+    });
+  });
 
   // Build category chips
-  buildReallocateCatChips('');
-  $('reallocate-sub-chips').classList.add('hidden');
-  $('reallocate-cat-back').style.display = 'none';
-  $('reallocate-suggest').innerHTML = '';
+  buildActionCatChips('');
+  $('action-sub-chips').classList.add('hidden');
+  $('action-cat-back').style.display = 'none';
+  $('action-suggest').innerHTML = '';
 
-  $('reallocate-modal').classList.remove('hidden');
+  // Show modal - start with reimburse
+  switchAction('reimburse');
+  $('action-modal').classList.remove('hidden');
 }
 
-function closeReallocateModal(){
-  $('reallocate-modal').classList.add('hidden');
-  reallocateSrcExpense = null;
-  reallocateAmountStr = '';
+function closeActionModal(){
+  $('action-modal').classList.add('hidden');
+  actionSrcExpense = null;
+  actionAmountStr = '';
 }
 
-$('btn-reallocate-close').addEventListener('click', closeReallocateModal);
+$('btn-action-close').addEventListener('click', closeActionModal);
 
-// Reallocate button on edit screen
-$('btn-reallocate').addEventListener('click', ()=>{
+// Action button on edit screen
+$('btn-action').addEventListener('click', ()=>{
   if(!editTarget) return;
-  // Re-fetch the current expense data from Firebase for latest amount
   if(!currentUser) return;
   expRef(editTarget.uid).child(editTarget.id).once('value').then(snap=>{
     const exp = snap.val();
     if(!exp){ alert('Expense not found'); return; }
     exp.id = editTarget.id;
     exp._uid = editTarget.uid;
-    openReallocateModal(exp);
+    openActionModal(exp);
   });
 });
 
-// Numpad for reallocate modal
-document.querySelectorAll('#reallocate-modal .numpad button').forEach(btn=>{
+// Toggle pill switching
+function switchAction(type){
+  actionType = type;
+  document.querySelectorAll('.action-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.action === type);
+  });
+  const isRealloc = type === 'reallocate';
+  $('action-cat-section').style.display = isRealloc ? 'block' : 'none';
+  $('action-notes-field').style.display = isRealloc ? 'block' : 'none';
+  $('action-pay-field').style.display = isRealloc ? 'none' : 'block';
+  $('action-modal-title').textContent = isRealloc ? '↻ Reallocate' : '↩ Reimburse';
+  $('btn-action-confirm').textContent = isRealloc ? 'Reallocate' : 'Reimburse';
+  $('action-desc').textContent = isRealloc
+    ? 'Move part of this expense to a new category with a different date.'
+    : 'Record a payback against this expense.';
+}
+
+document.querySelectorAll('.action-pill').forEach(p => {
+  p.addEventListener('click', () => switchAction(p.dataset.action));
+});
+
+// Numpad for action modal
+document.querySelectorAll('#action-modal .numpad button').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const k=btn.dataset.k;
-    if(k==='C'){ reallocateAmountStr=''; }
-    else if(k==='.'&&reallocateAmountStr.includes('.')){}
-    else if(k==='0'&&reallocateAmountStr===''){}
+    if(k==='C'){ actionAmountStr=''; }
+    else if(k==='.'&&actionAmountStr.includes('.')){}
+    else if(k==='0'&&actionAmountStr===''){}
     else {
-      const next=reallocateAmountStr+k;
+      const next=actionAmountStr+k;
       const parts=next.split('.');
       if(parts[1]&&parts[1].length>2){}
       else if(next.replace('.','').length>8){}
-      else { reallocateAmountStr=next; }
+      else { actionAmountStr=next; }
     }
-    $('reallocate-amount-display').textContent=reallocateAmountStr?parseFloat(reallocateAmountStr).toFixed(2):'0.00';
+    $('action-amount-display').textContent=actionAmountStr?parseFloat(actionAmountStr).toFixed(2):'0.00';
   });
 });
 
-// Category chips in reallocate modal
-let reallocateSelCat = '';
-let reallocateSelSub = '';
-
-function buildReallocateCatChips(selected){
-  const wrap = $('reallocate-cat-chips');
+// Category chips in action modal
+function buildActionCatChips(selected){
+  const wrap = $('action-cat-chips');
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
   const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
@@ -1055,32 +1095,32 @@ function buildReallocateCatChips(selected){
     el.addEventListener('click',()=>{
       const subs = categorySubs && categorySubs[c];
       if(!subs || subs.length===0){
-        reallocateSelCat = c;
-        reallocateSelSub = '';
-        $('reallocate-expense-for').value = c;
-        buildReallocateCatChips(c);
-        $('reallocate-sub-chips').classList.add('hidden');
-        $('reallocate-cat-back').style.display = 'none';
+        actionSelCat = c;
+        actionSelSub = '';
+        $('action-expense-for').value = c;
+        buildActionCatChips(c);
+        $('action-sub-chips').classList.add('hidden');
+        $('action-cat-back').style.display = 'none';
       }else{
-        reallocateSelCat = c;
-        reallocateSelSub = '';
-        showReallocateSubChips(c, subs);
+        actionSelCat = c;
+        actionSelSub = '';
+        showActionSubChips(c, subs);
       }
     });
     wrap.appendChild(el);
   });
 }
 
-function showReallocateSubChips(cat, subs){
-  $('reallocate-cat-chips').classList.add('hidden');
-  const wrap = $('reallocate-sub-chips');
+function showActionSubChips(cat, subs){
+  $('action-cat-chips').classList.add('hidden');
+  const wrap = $('action-sub-chips');
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
-  const back = $('reallocate-cat-back');
+  const back = $('action-cat-back');
   back.style.display = 'block';
   back.onclick = ()=>{
     wrap.classList.add('hidden');
-    $('reallocate-cat-chips').classList.remove('hidden');
+    $('action-cat-chips').classList.remove('hidden');
     back.style.display = 'none';
   };
   // "No subcategory" option
@@ -1088,12 +1128,12 @@ function showReallocateSubChips(cat, subs){
   none.className = 'tile';
   none.textContent = cat + ' (no sub)';
   none.addEventListener('click',()=>{
-    reallocateSelSub = '';
-    $('reallocate-expense-for').value = cat;
+    actionSelSub = '';
+    $('action-expense-for').value = cat;
     wrap.classList.add('hidden');
-    $('reallocate-cat-chips').classList.remove('hidden');
+    $('action-cat-chips').classList.remove('hidden');
     back.style.display = 'none';
-    buildReallocateCatChips(cat);
+    buildActionCatChips(cat);
   });
   wrap.appendChild(none);
   subs.forEach(item=>{
@@ -1101,107 +1141,136 @@ function showReallocateSubChips(cat, subs){
     el.className = 'tile';
     el.textContent = item;
     el.addEventListener('click',()=>{
-      reallocateSelCat = cat;
-      reallocateSelSub = item;
-      $('reallocate-expense-for').value = cat + ' - ' + item;
+      actionSelCat = cat;
+      actionSelSub = item;
+      $('action-expense-for').value = cat + ' - ' + item;
       wrap.classList.add('hidden');
-      $('reallocate-cat-chips').classList.remove('hidden');
+      $('action-cat-chips').classList.remove('hidden');
       back.style.display = 'none';
-      buildReallocateCatChips(cat);
+      buildActionCatChips(cat);
     });
     wrap.appendChild(el);
   });
 }
 
-// Suggest for reallocate category input
-$('reallocate-expense-for').addEventListener('input',()=>{
-  const val = $('reallocate-expense-for').value.toLowerCase().trim();
-  const box = $('reallocate-suggest');
+// Suggest for action category input
+$('action-expense-for').addEventListener('input',()=>{
+  const val = $('action-expense-for').value.toLowerCase().trim();
+  const box = $('action-suggest');
   if(!val || !currentUser){ box.innerHTML=''; return; }
   loadExpenses(currentUser.uid).then(list=>{
     const matches=[];
     list.forEach(e=>{ const label = e.category + (e.subCategory ? ' - ' + e.subCategory : ''); if(label.toLowerCase().includes(val)) matches.push(label); });
     QUICK_TILES.forEach(t=>{ if(t.category.toLowerCase().includes(val)) matches.push(t.category); });
     const uniq=[...new Set(matches)].slice(0,6);
-    box.innerHTML=uniq.map(m=>`<span class=\"suggest-chip\" onclick=\"window.setReallocateExpenseFor('${esc(m)}')\">${esc(m)}</span>`).join('');
+    box.innerHTML=uniq.map(m=>`<span class=\"suggest-chip\" onclick=\"window.setActionExpenseFor('${esc(m)}')\">${esc(m)}</span>`).join('');
   });
 });
 
-window.setReallocateExpenseFor = function(m){
-  $('reallocate-expense-for').value = m;
-  $('reallocate-suggest').innerHTML = '';
+window.setActionExpenseFor = function(m){
+  $('action-expense-for').value = m;
+  $('action-suggest').innerHTML = '';
   const parts=m.split(' - ');
-  reallocateSelCat=parts[0];
-  reallocateSelSub=parts[1]||'';
-  buildReallocateCatChips(reallocateSelCat);
-  $('reallocate-sub-chips').classList.add('hidden');
-  $('reallocate-cat-back').style.display = 'none';
+  actionSelCat=parts[0];
+  actionSelSub=parts[1]||'';
+  buildActionCatChips(actionSelCat);
+  $('action-sub-chips').classList.add('hidden');
+  $('action-cat-back').style.display = 'none';
 };
 
-// Confirm reallocate
-$('btn-reallocate-confirm').addEventListener('click',()=>{
-  const err = $('reallocate-error');
-  const amount = parseMoney(reallocateAmountStr);
-  const src = reallocateSrcExpense;
+// Confirm action
+$('btn-action-confirm').addEventListener('click',()=>{
+  const err = $('action-error');
+  const amount = parseMoney(actionAmountStr);
+  const src = actionSrcExpense;
   if(!src){ err.textContent='No source expense'; err.style.display='block'; return; }
-  if(amount <= 0){ err.textContent='Enter amount to move'; err.style.display='block'; return; }
-  if(!reallocateSelCat){ err.textContent='Select a category'; err.style.display='block'; return; }
-  if(amount > src.amount){ err.textContent='Cannot move more than the original amount (RM '+src.amount.toFixed(2)+')'; err.style.display='block'; return; }
+  if(amount <= 0){ err.textContent='Enter an amount'; err.style.display='block'; return; }
 
-  err.style.display = 'none';
-  const newDate = $('reallocate-date').value || fmtDate(now());
-  const notes = $('reallocate-notes').value.trim();
-  const ts = Date.now();
-
-  // Build the new expense (e.g. Haircut RM20)
-  const newExpense = {
-    category: reallocateSelCat,
-    subCategory: reallocateSelSub || null,
-    amount: amount,
-    payment: src.payment || 'Cash',
-    notes: notes,
-    date: newDate,
-    timestamp: ts,
-    status: 'approved',
-    type: 'expense',
-    _reallocatedFrom: src._uid + '/' + src.id
-  };
-
-  // Build the adjustment entry (e.g. Food -RM20 on original date)
-  // Stored as negative amount — naturally subtracts from totals in both SPENT and Expensed
-  const adjExpense = {
-    category: src.category,
-    subCategory: src.subCategory || null,
-    amount: -amount,
-    payment: src.payment || 'Cash',
-    notes: 'Realloc → ' + reallocateSelCat + (reallocateSelSub ? ' - ' + reallocateSelSub : ''),
-    date: src.date,
-    timestamp: ts,
-    status: 'approved',
-    type: 'expense',
-    isReallocation: true,
-    _reallocationSource: src._uid + '/' + src.id
-  };
-
-  // Save BOTH entries (parallel)
   const uid = currentUser.uid;
-  Promise.all([
-    saveExpense(uid, newExpense),
-    saveExpense(uid, adjExpense)
-  ]).then(()=>{
-    closeReallocateModal();
-    editTarget = null;
-    showScreen('dash-screen');
-    refreshDash();
-  }).catch(e=>{
-    err.textContent='Error: '+e.message;
-    err.style.display='block';
-  });
+  const date = $('action-date').value || fmtDate(now());
+
+  if(actionType === 'reimburse'){
+    // ── REIMBURSE ──
+    const selectedPay = $('action-pay-chips').querySelector('.tile.on');
+    const payment = selectedPay ? selectedPay.textContent : (src.payment || 'Cash');
+    const data = {
+      amount: -Math.abs(amount),
+      category: src.category,
+      subCategory: src.subCategory || null,
+      payment: payment,
+      date: date,
+      notes: 'Reimbursement for ' + (src.notes || src.category || 'expense'),
+      timestamp: Date.now(),
+      status: 'approved',
+      type: 'expense',
+      reimburses: src.id
+    };
+    saveExpense(uid, data).then(()=>{
+      closeActionModal();
+      editTarget = null;
+      showScreen('dash-screen');
+      refreshDash();
+    }).catch(e=>{
+      err.textContent='Error: '+e.message;
+      err.style.display='block';
+    });
+  } else {
+    // ── REALLOCATE ──
+    if(!actionSelCat){ err.textContent='Select a category'; err.style.display='block'; return; }
+    if(amount > src.amount){ err.textContent='Cannot move more than the original amount (RM '+src.amount.toFixed(2)+')'; err.style.display='block'; return; }
+
+    err.style.display = 'none';
+    const notes = $('action-notes').value.trim();
+    const ts = Date.now();
+
+    // New expense
+    const newExpense = {
+      category: actionSelCat,
+      subCategory: actionSelSub || null,
+      amount: amount,
+      payment: src.payment || 'Cash',
+      notes: notes,
+      date: date,
+      timestamp: ts,
+      status: 'approved',
+      type: 'expense',
+      _reallocatedFrom: src._uid + '/' + src.id
+    };
+
+    // Adjustment entry (negative amount on original date)
+    const adjExpense = {
+      category: src.category,
+      subCategory: src.subCategory || null,
+      amount: -amount,
+      payment: src.payment || 'Cash',
+      notes: 'Realloc \u2192 ' + actionSelCat + (actionSelSub ? ' - ' + actionSelSub : ''),
+      date: src.date,
+      timestamp: ts,
+      status: 'approved',
+      type: 'expense',
+      isReallocation: true,
+      _reallocationSource: src._uid + '/' + src.id
+    };
+
+    // Save BOTH entries (parallel)
+    Promise.all([
+      saveExpense(uid, newExpense),
+      saveExpense(uid, adjExpense)
+    ]).then(()=>{
+      closeActionModal();
+      editTarget = null;
+      showScreen('dash-screen');
+      refreshDash();
+    }).catch(e=>{
+      err.textContent='Error: '+e.message;
+      err.style.display='block';
+    });
+  }
 });
 
 // Close modal on overlay click
-$('reallocate-modal').addEventListener('click',e=>{
-  if(e.target === $('reallocate-modal')) closeReallocateModal();
+$('action-modal').addEventListener('click',e=>{
+  if(e.target === $('action-modal')) closeActionModal();
 });
 
 /* ─── REVIEW SCREEN ─── */

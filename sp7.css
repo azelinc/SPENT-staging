@@ -745,3 +745,39 @@ html, body {
 .show-more-btn:hover {
   opacity: 0.7;
 }
+
+/* Action toggle pills (Reimburse / Reallocate) */
+.action-toggle {
+  display: flex;
+  gap: .25rem;
+  margin-bottom: .75rem;
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 3px;
+}
+.action-pill {
+  flex: 1;
+  padding: .45rem .5rem;
+  font-size: .8rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--muted);
+  transition: all .2s;
+  text-align: center;
+}
+.action-pill.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.action-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+}
