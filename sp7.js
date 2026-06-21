@@ -56,7 +56,7 @@ const DEFAULT_SUBCATEGORIES = {
   'Home': ['Rent','Repair','Cleaning','Decor'],
   'Others': []
 };
-const QUICK_TILES = [
+let QUICK_TILES = [
   { category: 'Food' },
   { category: 'Transport' },
   { category: 'Shopping' },
@@ -104,6 +104,11 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 function loadCategorySubs(){
   return db.ref('config/categorySubs').once('value').then(s=>{
     categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
+    // Rebuild QUICK_TILES from user's actual categories
+    QUICK_TILES = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS)
+      .filter(c => !['Investment','Stocks','Inheritance','Salary','Claim','Insurance Refund','Extras','Office','Gift','Bonus'].includes(c))
+      .slice(0, 5)
+      .map(c => ({ category: c }));
     // Populate hidden category select to match config
     const sel = $('add-category');
     if(sel){
