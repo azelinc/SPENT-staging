@@ -1970,8 +1970,14 @@ function isRecentlyUpdated(emailUpdatedAt){
   if(!emailUpdatedAt) return false;
   const updated = new Date(emailUpdatedAt);
   if(isNaN(updated.getTime())) return false;
-  const diffHrs = (now() - updated) / 3600000;
-  return diffHrs >= 0 && diffHrs <= 48;
+  const nowDate = now();
+  // Badge persists until the first day of the next month
+  const nextMonth = updated.getMonth() + 1;
+  const firstOfNextMonth = new Date(
+    updated.getFullYear() + (nextMonth>11?1:0),
+    nextMonth>11?0:nextMonth, 1
+  );
+  return nowDate < firstOfNextMonth;
 }
 
 /* ─── NEXT DUE DATE CALC ─── */
