@@ -104,9 +104,10 @@ function esc(s){ const d=document.createElement('div'); d.textContent=s; return 
 function loadCategorySubs(){
   return db.ref('config/categorySubs').once('value').then(s=>{
     categorySubs = s.val() || DEFAULT_CATEGORY_SUBS;
-    // Rebuild QUICK_TILES from user's actual categories
+    // Rebuild QUICK_TILES from user's actual categories, sorted by frequency
     QUICK_TILES = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS)
       .filter(c => !['Investment','Stocks','Inheritance','Salary','Claim','Insurance Refund','Extras','Office','Gift','Bonus'].includes(c))
+      .sort((a,b)=>(catFreq[b]||0)-(catFreq[a]||0))
       .slice(0, 5)
       .map(c => ({ category: c }));
     // Populate hidden category select to match config
