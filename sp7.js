@@ -58,7 +58,7 @@ const DEFAULT_SUBCATEGORIES = {
 };
 let QUICK_TILES = [
   { category: 'Food' },
-  { category: 'Transport' },
+  { category: 'Wife' },
   { category: 'Shopping' },
   { category: 'Utilities' },
   { category: 'Entertainment' }
