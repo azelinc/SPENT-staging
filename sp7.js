@@ -442,8 +442,8 @@ function renderDash(combined, today, monthPrefix, approvedPartners){
     });
   }
   
-  const todaySum = heroData.filter(e=>e.date===today && e.type!=='income').reduce((a,e)=> a + e.amount, 0);
-  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix) && e.type!=='income').reduce((a,e)=> a + e.amount, 0);
+  const todaySum = heroData.filter(e=>e.date===today && e.type!=='income' && e.type!=='investment').reduce((a,e)=> a + e.amount, 0);
+  const monthSum = heroData.filter(e=>e.date.startsWith(monthPrefix) && e.type!=='income' && e.type!=='investment').reduce((a,e)=> a + e.amount, 0);
   $('hero-today').textContent = fmtMoney(todaySum);
   $('hero-month').textContent = fmtMoney(monthSum);
 
