@@ -1775,11 +1775,6 @@ function computeRecurringTotal(bill, monthKey){
 function renderBillAmount(bill, monthKey){
   const total = computeRecurringTotal(bill, monthKey);
   if(!bill.recurring) return fmtMoney(bill.amount);
-  // Show breakdown for multi-month unpaid
-  if(total > bill.amount && bill.amount > 0){
-    const months = Math.round(total / bill.amount);
-    return `${fmtMoney(total)} <span class="bill-hint">(${months}m × RM${fmtMoney(bill.amount)})</span>`;
-  }
   return fmtMoney(total);
 }
 
