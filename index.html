@@ -265,6 +265,10 @@
           <input type="checkbox" id="bill-active" checked>
           <label for="bill-active" style="margin:0">Active</label>
         </div>
+        <div class="field" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="bill-recurring">
+          <label for="bill-recurring" style="margin:0">Recurring bill <span class="bill-hint">amount × unpaid months</span></label>
+        </div>
         <div id="bill-modal-error" style="color:var(--danger);font-size:0.8rem;margin:8px 0;display:none"></div>
         <button id="btn-bill-save" class="btn-primary">Save Bill</button>
         <button id="btn-bill-delete" class="btn-danger btn-lg hidden">Delete Bill</button>
