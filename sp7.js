@@ -1764,11 +1764,12 @@ function computeBacklog(bill, monthKey){
 function computeRecurringTotal(bill, monthKey){
   // For recurring bills, amount = monthly figure.
   // Outstanding = unpaid months × amount.
+  // Uses auto-backlog ONLY — ignores manual backlogOffset.
   if(!bill.recurring) return bill.amount || 0;
-  const backlog = computeBacklog(bill, monthKey);
+  const auto = computeAutoBacklog(bill, monthKey);
   const pm = bill.paidMonths || {};
   const currentMonthUnpaid = !pm[monthKey] ? 1 : 0;
-  const effective = Math.max(0, backlog) + currentMonthUnpaid;
+  const effective = Math.max(0, auto) + currentMonthUnpaid;
   return effective * (bill.amount || 0);
 }
 
@@ -1959,9 +1960,9 @@ function renderBills(){
         </div>
       `;
 
-      // Tap anywhere on the row → toggle paid (except edit btn)
+      // Only tapping the checkbox toggles paid — prevents accidental taps
       row.addEventListener('click', e => {
-        if(e.target.classList.contains('bill-edit-btn')) return;
+        if(!e.target.closest('.bill-check')) return;
         togglePaid(currentUser.uid, b.id, mk, isPaid);
       });
 
@@ -2166,3 +2167,4 @@ if('serviceWorker' in navigator){
 }
 
 })();
+
