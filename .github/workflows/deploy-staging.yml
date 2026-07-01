@@ -11,15 +11,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: SPENT-staging
+          fetch-depth: 0
 
-      - name: Setup deploy key
+      - name: Setup & push
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Push to SPENT-staging.git
-        run: |
-          git remote add deploy git@github.com:azelinc/SPENT-staging.git
-          git push deploy SPENT-staging:main --force
+          GIT_SSH_COMMAND="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            git push git@github.com:azelinc/SPENT-staging.git SPENT-staging:main --force
