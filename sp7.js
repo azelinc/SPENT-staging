@@ -17,7 +17,7 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.database();
 
-const APP_VER = 'v2.8.19';
+const APP_VER = 'v2.9.0';
 $('global-version').textContent = APP_VER;
 
 /* ─── CONSTANTS ─── */
@@ -619,8 +619,8 @@ function getSubs(cat){
 function buildCatChips(selected){
   const wrap = $('cat-chips');
   wrap.innerHTML = '';
-  const top4 = getTop(CATEGORIES, catFreq, 4);
-  const hasMore = CATEGORIES.length > 4 && !showAllCats;
+  const top4 = getTop(CATEGORIES, catFreq, 6);
+  const hasMore = CATEGORIES.length > 6 && !showAllCats;
   const display = showAllCats ? CATEGORIES : top4;
   display.forEach(cat => {
     const el = document.createElement('div');
@@ -645,7 +645,7 @@ function buildCatChips(selected){
   if(hasMore){
     const more = document.createElement('div');
     more.className = 'tile more-tile';
-    more.textContent = `+${CATEGORIES.length - 4} more`;
+    more.textContent = `+${CATEGORIES.length - 6} more`;
     more.addEventListener('click',()=>{ showAllCats = true; buildCatChips(selected); });
     wrap.appendChild(more);
   }else if(showAllCats){
@@ -797,8 +797,8 @@ function buildCatLevel1(selected){
   wrap.innerHTML = '';
   wrap.classList.remove('hidden');
   const cats = Object.keys(categorySubs || DEFAULT_CATEGORY_SUBS);
-  const top4 = getTop(cats, catFreq, 4);
-  const hasMore = cats.length > 4 && !showAllCats;
+  const top4 = getTop(cats, catFreq, 6);
+  const hasMore = cats.length > 6 && !showAllCats;
   const display = showAllCats ? cats : top4;
   display.forEach(c=>{
     const el = document.createElement('div');
@@ -824,7 +824,7 @@ function buildCatLevel1(selected){
   if(hasMore){
     const more = document.createElement('div');
     more.className = 'tile more-tile';
-    more.textContent = `+${cats.length - 4} more`;
+    more.textContent = `+${cats.length - 6} more`;
     more.addEventListener('click',()=>{ showAllCats = true; buildCatLevel1(selected); });
     wrap.appendChild(more);
   }else if(showAllCats){
@@ -988,8 +988,8 @@ let currentPayMethods = Object.keys(DEFAULT_ACCOUNTS).slice();
 function buildPayChips(methods, selected){
   currentPayMethods = methods;
   const wrap = $('pay-chips');
-  const top4 = getTop(methods, payFreq, 4);
-  const hasMore = methods.length > 4 && !showAllPay;
+  const top4 = getTop(methods, payFreq, 6);
+  const hasMore = methods.length > 6 && !showAllPay;
   const display = showAllPay ? methods : top4;
   wrap.innerHTML = display.map(m => {
     const cls = m === selected ? 'tile on' : 'tile';
@@ -999,10 +999,10 @@ function buildPayChips(methods, selected){
   if(hasMore){
     const more = document.createElement('div');
     more.className = 'tile more-tile';
-    more.textContent = `+${methods.length - 4} more`;
+    more.textContent = `+${methods.length - 6} more`;
     more.addEventListener('click',()=>{ showAllPay = true; buildPayChips(methods, selected); });
     wrap.appendChild(more);
-  }else if(showAllPay && methods.length > 4){
+  }else if(showAllPay && methods.length > 6){
     const less = document.createElement('div');
     less.className = 'tile more-tile';
     less.textContent = '← Less';
